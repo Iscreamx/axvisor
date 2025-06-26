@@ -24,6 +24,12 @@ static VMM: AxWaitQueueHandle = AxWaitQueueHandle::new();
 /// The number of running VMs. This is used to determine when to exit the VMM.
 static RUNNING_VM_COUNT: AtomicUsize = AtomicUsize::new(0);
 
+/// Run a closure with the specified VM.
+pub fn with_wm<T>(vm_id: usize, f: impl FnOnce(VMRef) -> T) -> Option<T> {
+    let vm = vm_list::get_vm_by_id(vm_id)?;
+    Some(f(vm))
+}
+
 /// Initialize the VMM.
 ///
 /// This function creates the VM structures and sets up the primary VCpu for each VM.

@@ -17,16 +17,17 @@ phys_cpu_sets = [1]
 #
 [kernel]
 # The entry point of the kernel image.
-entry_point = 0x8000
+entry_point = 0x20_0000
 # The location of image: "memory" | "fs".
 # Load from file system.
-image_location = "fs"
+image_location = "memory"
 # The file path of the BIOS image.
-bios_path = "axvm-bios.bin"
+bios_path = "/home/debin/code/axvisor/vmm0626/axvm-bios.bin"
 # The load address of the BIOS image.
 bios_load_addr = 0x8000
 # The file path of the kernel image.
-kernel_path = "arceos-x86_64.bin"
+kernel_path = "/home/debin/code/axvisor/vmm0626/arceos/examples/shell/shell_x86_64-qemu-q35.bin"
+# kernel_path = "/home/debin/code/axvisor/vmm0626/arceos/examples/helloworld/helloworld_x86_64-qemu-q35.bin"
 # The load address of the kernel image.
 kernel_load_addr = 0x20_0000
 
@@ -49,7 +50,8 @@ memory_regions = [
 [devices]
 # Emu_devices.
 # Name Base-Ipa Ipa_len Alloc-Irq Emu-Type EmuConfig.
-emu_devices = []
+emu_devices = [["virtio_mmio", 0xfb000000, 0x1000, 0x1, 3, [0]]]
+
 
 # Pass-through devices.
 # Name Base-Ipa Base-Pa Length Alloc-Irq.

@@ -1,4 +1,4 @@
-use std::os::arceos;
+use std::os::arceos::{self, modules::axtask::{self, TaskExtRef}};
 
 use memory_addr::{PAGE_SIZE_4K, align_up_4k};
 use page_table_multiarch::PagingHandler;
@@ -44,6 +44,19 @@ impl AxVMHal for AxVMHalImpl {
 
     fn current_time_nanos() -> u64 {
         axhal::time::monotonic_time_nanos()
+    }
+
+
+    fn current_vm_id() -> usize {
+        axtask::current().task_ext().vm.id()
+    }
+
+    fn current_vcpu_id() -> usize {
+        axtask::current().task_ext().vcpu.id()
+    }
+
+    fn current_pcpu_id() -> usize {
+        axhal::cpu::this_cpu_id()
     }
 }
 
@@ -124,5 +137,50 @@ pub(crate) fn enable_virtualization() {
     while CORES.load(Ordering::Acquire) != config::SMP {
         // Use `yield_now` instead of `core::hint::spin_loop` to avoid deadlock.
         thread::yield_now();
+    }
+}
+
+#[axvisor_api::api_mod_impl(axvisor_api::vmm)]
+mod vmm_api_impl {
+    use super::*;
+    use axvisor_api::vmm::{InterruptVector, VCpuId, VMId};
+
+    extern fn current_vm_id() -> usize {
+        <AxVMHalImpl as AxVMHal>::current_vm_id()
+    }
+
+    extern fn current_vcpu_id() -> usize {
+        <AxVMHalImpl as AxVMHal>::current_vcpu_id()
+    }
+
+    extern fn vcpu_num(vm_id: VMId) -> Option<usize> {
+        vmm::with_wm(vm_id, |vm| vm.vcpu_num())
+    }
+
+    extern fn active_vcpus(_vm_id: VMId) -> Option<usize> {
+        todo!("active_vcpus")
+    }
+
+    extern fn inject_interrupt(_vm_id: VMId, _vcpu_id: VCpuId, _vector: InterruptVector) {
+        // <AxVMHalImpl as AxVMHal>::inject_irq_to_vcpu(vm_id, vcpu_id, vector as usize).unwrap();
+        todo!("inject_interrupt")
+    }
+
+    extern fn notify_vcpu_timer_expired(_vm_id: VMId, _vcpu_id: VCpuId) {
+        todo!("notify_vcpu_timer_expired")
+        // vmm::timer::notify_timer_expired(vm_id, vcpu_id);
+    }
+}
+
+#[axvisor_api::api_mod_impl(axvisor_api::guest_memory)]
+mod guest_memory_api_impl {
+    use axaddrspace::GuestPhysAddr;
+    use axvisor_api::vmm::{VCpuId, VMId};
+    use memory_addr::PhysAddr;
+
+    extern fn translate_to_phys(vm_id: VMId, _vcpu_id: VCpuId, addr: GuestPhysAddr) -> Option<PhysAddr> {
+        super::vmm::with_wm(vm_id, |vm| {
+            vm.translate(addr).ok()
+        }).flatten()
     }
 }

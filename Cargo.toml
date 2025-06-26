@@ -1,3 +1,27 @@
+[patch."https://github.com/arceos-hypervisor/arceos.git".axstd]
+path = "../crates/arceos/ulib/axstd"
+[patch."https://github.com/arceos-hypervisor/arceos.git".axhal]
+path = "../crates/arceos/modules/axhal"
+[patch."https://github.com/arceos-hypervisor/arceos.git".axtask]
+path = "../crates/arceos/modules/axtask"
+[patch."https://github.com/arceos-hypervisor/axvisor_api.git".axvisor_api]
+path = "../crates/axvisor_api"
+[patch."https://github.com/arceos-hypervisor/axdevice.git".axdevice]
+path = "../crates/axdevice"
+[patch."https://github.com/arceos-hypervisor/axvm.git".axvm]
+path = "../crates/axvm"
+[patch."https://github.com/arceos-hypervisor/axaddrspace.git".axaddrspace]
+path = "../crates/axaddrspace"
+[patch."https://github.com/arceos-hypervisor/axvcpu.git".axvcpu]
+path = "../crates/axvcpu"
+[patch."https://github.com/arceos-hypervisor/x86_vcpu.git".x86_vcpu]
+path = "../crates/x86_vcpu"
+[patch."https://github.com/arceos-hypervisor/axvirtio.git".axvirtio-blk]
+path = "../crates/axvirtio/axvirtio-blk"
+[patch."https://github.com/arceos-hypervisor/axdevice_crates.git".axdevice_base]
+path = "../crates/axdevice_crates/axdevice_base"
+
+
 [profile.release]
 lto = true
 
@@ -11,6 +35,8 @@ license = "GPL-3.0-or-later OR Apache-2.0 OR MulanPubL-2.0 OR MulanPSL2"
 
 [features]
 fs = ["axstd/fs"]
+irq = []
+hv = []
 
 [dependencies]
 log = "=0.4.21"
@@ -36,6 +62,7 @@ axstd = { git = "https://github.com/arceos-hypervisor/arceos.git", branch = "vmm
 axvm = { git = "https://github.com/arceos-hypervisor/axvm.git" }
 axvcpu = { git = "https://github.com/arceos-hypervisor/axvcpu.git" }
 axaddrspace = { git = "https://github.com/arceos-hypervisor/axaddrspace.git" }
+axvisor_api = { git = "https://github.com/arceos-hypervisor/axvisor_api.git" }
 
 # System independent crates provided by ArceOS, these crates could be imported by remote url. 
 crate_interface = "0.1"

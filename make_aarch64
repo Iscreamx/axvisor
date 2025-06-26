@@ -1,0 +1,4 @@
+#!/usr/bin/fish
+cd ../arceos
+make defconfig ARCH=aarch64
+make ARCH=aarch64 SMP=1 A=examples/shell BUS=mmio

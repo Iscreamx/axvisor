@@ -1,0 +1,8 @@
+#!/usr/bin/fish
+# make ACCEL=n ARCH=aarch64 LOG=debug VM_CONFIGS=configs/vms/arm-tiny-aarch64.toml FEATURES=hv,irq,fs APP_FEATURES=fs MEM=4G  run
+# make ACCEL=n ARCH=aarch64 LOG=debug VM_CONFIGS=configs/vms/arceos-aarch64.toml FEATURES=hv,irq,fs APP_FEATURES=fs MEM=4G  run
+
+
+# x86_64
+make defconfig ARCH=x86_64
+make ACCEL=y ARCH=x86_64 LOG=info VM_CONFIGS=configs/vms/arceos-x86_64.toml FEATURES=page-alloc-64g APP_FEATURES=fs run
