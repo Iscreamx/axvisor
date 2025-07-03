@@ -24,3 +24,5 @@ cp $source_config $target_config
 
 make defconfig ARCH=aarch64
 make ARCH=aarch64 SMP=1 A=examples/shell FEATURES=virtio_console BUS=mmio
+cp examples/shell/shell_aarch64-qemu-virt.bin ../axvisor/shell_aarch64-qemu-virt_$param.bin
+echo "已生成 shell_aarch64-qemu-virt_$param.bin"
