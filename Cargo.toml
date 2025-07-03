@@ -4,6 +4,8 @@ path = "../crates/arceos/ulib/axstd"
 path = "../crates/arceos/modules/axhal"
 [patch."https://github.com/arceos-hypervisor/arceos.git".axtask]
 path = "../crates/arceos/modules/axtask"
+[patch."https://github.com/arceos-hypervisor/arceos.git".arceos_api]
+path = "../crates/arceos/api/arceos_api"
 [patch."https://github.com/arceos-hypervisor/axvisor_api.git".axvisor_api]
 path = "../crates/axvisor_api"
 [patch."https://github.com/arceos-hypervisor/axdevice.git".axdevice]
@@ -18,6 +20,8 @@ path = "../crates/axvcpu"
 path = "../crates/arm_vcpu"
 [patch."https://github.com/arceos-hypervisor/axvirtio.git".axvirtio-blk]
 path = "../crates/axvirtio/axvirtio-blk"
+[patch."https://github.com/arceos-hypervisor/axvirtio.git".axvirtio-console]
+path = "../crates/axvirtio/axvirtio-console"
 [patch."https://github.com/arceos-hypervisor/axdevice_crates.git".axdevice_base]
 path = "../crates/axdevice_crates/axdevice_base"
 

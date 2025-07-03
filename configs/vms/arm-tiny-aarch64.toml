@@ -2,29 +2,29 @@
 #
 [base]
 # Guest vm id.
-id = 2
+id = 1
 # Guest vm name.
-name = "arceos2"
+name = "arceos"
 # Virtualization type.
 vm_type = 1
 # The number of virtual CPUs.
 cpu_num = 1
 # Guest vm physical cpu sets.
-phys_cpu_sets = [2]
+phys_cpu_sets = [1]
 
 #
 # Vm kernel configs
 #
 [kernel]
 # The entry point of the kernel image.
-entry_point = 0x8020_0000
+entry_point = 0x4020_0000
 # The location of image: "memory" | "fs".
 # Load from file system.
 image_location = "memory"
 # The file path of the kernel image.
-kernel_path = "../../../arceos_1/examples/shell/shell_aarch64-qemu-virt.bin"
+kernel_path = "/home/debin/Codes/arceos-umhv/arm_tiny/build/arm_tiny.bin"
 # The load address of the kernel image.
-kernel_load_addr = 0x8020_0000
+kernel_load_addr = 0x4020_0000
 ## Load from memory
 # image_location = "memory"
 ## The file path of the kernel image.
@@ -34,7 +34,7 @@ kernel_load_addr = 0x8020_0000
 # Memory regions with format (`base_paddr`, `size`, `flags`, `map_type`).
 # For `map_type`, 0 means `MAP_ALLOC`, 1 means `MAP_IDENTICAL`.
 memory_regions = [
-    [0x8000_0000, 0x800_0000, 0x7, 0], # Low RAM		    16M 0b00111 R|W|EXECUTE
+    [0x4000_0000, 0x800_0000, 0x7, 0], # Low RAM		    16M 0b00111 R|W|EXECUTE
 ]
 
 #
@@ -43,13 +43,34 @@ memory_regions = [
 [devices]
 # Emu_devices.
 # Name Base-Ipa Ipa_len Alloc-Irq Emu-Type EmuConfig.
-emu_devices = [["virtio_mmio", 0x0a00_0000, 0x4000, 0x1, 3, [0]]]
+emu_devices = [
+    [
+        "virtio_mmio",
+        0x0a00_0000,
+        0x200,
+        0x1,
+        3,
+        [
+            0,
+        ],
+    ],
+    [
+        "virtio_mmio",
+        0x0a00_0200,
+        0x200,
+        0x1,
+        5,
+        [
+            0,
+        ],
+    ],
+]
 
 # Pass-through devices.
 # Name Base-Ipa Base-Pa Length Alloc-Irq.
 passthrough_devices = [
     ["intc@8000000", 0x800_0000, 0x800_0000, 0x50_000, 0x1],
-    ["pl011@9000000", 0x900_0000, 0x904_0000, 0x1000, 0x1],
+    ["pl011@9000000", 0x900_0000, 0x900_0000, 0x1000, 0x1],
     ["pl031@9010000", 0x901_0000, 0x901_0000, 0x1000, 0x1],
     ["pl061@9030000", 0x903_0000, 0x903_0000, 0x1000, 0x1],
     # a003000.virtio_mmio virtio_mmio@a003000 
