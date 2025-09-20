@@ -30,7 +30,7 @@ ramdisk_load_addr = 0x0a20_0000
 # load from memory
 image_location = "memory"
 # The file path of the kernel image.
-kernel_path = "Image.bin"
+kernel_path = "Image-5.10.198.bin"
 # The file path of the device tree blob (DTB).
 dtb_path = "aio-rk3588-jd4.dtb"
 # The file path of the ramdisk image.
