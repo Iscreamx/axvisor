@@ -1,0 +1,40 @@
+[submodule "crates/arceos"]
+	path = crates/arceos
+	url = https://github.com/arceos-hypervisor/arceos.git
+	branch = rk3588_jd4
+[submodule "crates/arm_gicv2"]
+	path = crates/arm_gicv2
+	url = https://github.com/arceos-hypervisor/arm_gicv2.git
+	branch = debin/2vm_timer
+[submodule "crates/arm_vcpu"]
+	path = crates/arm_vcpu
+	url = https://github.com/arceos-hypervisor/arm_vcpu.git
+	branch = rk3588_jd4_vgicv3_ivc
+[submodule "crates/arm_vgic"]
+	path = crates/arm_vgic
+	url = https://github.com/arceos-hypervisor/arm_vgic.git
+	branch = rk3588_jd4_1vm
+[submodule "crates/axaddrspace"]
+	path = crates/axaddrspace
+	url = https://github.com/arceos-hypervisor/axaddrspace.git
+	branch = rk3588_jd4
+[submodule "crates/axvcpu"]
+	path = crates/axvcpu
+	url = https://github.com/arceos-hypervisor/axvcpu.git
+	branch = inject_interrupt_vgicv3_ivc
+[submodule "crates/axvm"]
+	path = crates/axvm
+	url = https://github.com/arceos-hypervisor/axvm.git
+	branch = rk3588_jd4_1vm
+[submodule "crates/page_table_multiarch"]
+	path = crates/page_table_multiarch
+	url = https://github.com/arceos-org/page_table_multiarch.git
+	branch = rk3588_jd4
+[submodule "crates/axdevice"]
+	path = crates/axdevice
+	url = https://github.com/arceos-hypervisor/axdevice.git
+	branch = inject_interrupt
+[submodule "crates/axdevice_crates"]
+	path = crates/axdevice_crates
+	url = https://github.com/arceos-hypervisor/axdevice_crates.git
+	branch = inject_interrupt

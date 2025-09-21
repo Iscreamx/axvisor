@@ -17,7 +17,6 @@ rusty-tags.vi
 /**/.axconfig.*
 
 # dev env
-/crates
 /Cargo.toml.bk
 
 # tools should be downloaded from github
