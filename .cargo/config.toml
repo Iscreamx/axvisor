@@ -1,5 +1,7 @@
 [patch."https://github.com/arceos-hypervisor/arm_vcpu".arm_vcpu]
 path = "modules/arm_vcpu"
+[patch.crates-io.arm_vcpu]
+path = "modules/arm_vcpu"
 
 [patch."https://github.com/arceos-hypervisor/axdevice".axdevice]
 path = "modules/axdevice"
@@ -8,6 +10,9 @@ path = "modules/axdevice"
 path = "modules/axvcpu"
 
 [patch.crates-io.arm_vgic]
+path = "modules/arm_vgic"
+
+[patch."https://github.com/arceos-hypervisor/arm_vgic".arm_vgic]
 path = "modules/arm_vgic"
 
 [patch.crates-io.axaddrspace]

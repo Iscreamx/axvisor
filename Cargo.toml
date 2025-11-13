@@ -6,6 +6,9 @@ members = [
   "xtask",
   "kernel",
 ]
+exclude = [
+  "modules/axvisor_api",
+]
 resolver = "3"
 
 [profile.release]
@@ -57,7 +60,7 @@ axtask = {git = "https://github.com/arceos-hypervisor/arceos.git", tag = "hv-0.4
 axplat = {git = "https://github.com/arceos-hypervisor/axplat_crates.git", tag = "vmm-v0.3.0"}
 
 # System dependent modules provided by ArceOS-Hypervisor.
-axaddrspace = "0.1"
+axaddrspace = "0.2"
 axhvc = {git = "https://github.com/arceos-hypervisor/axhvc.git"}
 axruntime = {path = "modules/axruntime"}
 axvcpu = "0.1"
@@ -89,6 +92,9 @@ axvmconfig = {git = "https://github.com/arceos-hypervisor/axvmconfig.git", branc
 [patch.crates-io]
 # axvcpu = {git = "https://github.com/arceos-hypervisor/axvcpu.git", branch = "next"}
 axvmconfig = {git = "https://github.com/arceos-hypervisor/axvmconfig.git", branch = "next"}
+axvisor_api = { path = "modules/axvisor_api" }
+axdevice_base = { path = "modules/axdevice_base" }
+axaddrspace = { path = "modules/axaddrspace" }
 
 [patch."https://github.com/arceos-hypervisor/arceos"]
 axconfig = {path = "modules/axconfig"}
