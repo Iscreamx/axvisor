@@ -22,3 +22,6 @@
 [submodule "modules/axvisor_api"]
 	path = modules/axvisor_api
 	url = https://github.com/arceos-hypervisor/axvisor_api
+[submodule "modules/axvmconfig"]
+	path = modules/axvmconfig
+	url = https://github.com/arceos-hypervisor/axvmconfig

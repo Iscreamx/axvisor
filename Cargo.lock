@@ -1166,7 +1166,6 @@ dependencies = [
 [[package]]
 name = "axvmconfig"
 version = "0.1.0"
-source = "git+https://github.com/arceos-hypervisor/axvmconfig.git?branch=next#5a8b64a47510b17da71e54cabbdf8c999ba2e2c9"
 dependencies = [
  "axerrno",
  "clap",
