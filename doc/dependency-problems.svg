@@ -1,0 +1,205 @@
+<svg viewBox="0 0 1400 700" xmlns="http://www.w3.org/2000/svg">
+  <!-- Define styles -->
+  <defs>
+    <style>
+      .title-text { font-family: 'Microsoft YaHei', Arial; font-size: 28px; font-weight: bold; fill: #d32f2f; }
+      .component-name { font-family: 'Microsoft YaHei', Arial; font-size: 16px; font-weight: bold; fill: #2c3e50; }
+      .problem-text { font-family: 'Microsoft YaHei', Arial; font-size: 12px; fill: #d32f2f; font-weight: bold; }
+      .normal-text { font-family: 'Microsoft YaHei', Arial; font-size: 11px; fill: #34495e; }
+      .small-text { font-family: 'Microsoft YaHei', Arial; font-size: 10px; fill: #7f8c8d; }
+      .dependency-label { font-family: 'Microsoft YaHei', Arial; font-size: 9px; fill: #e74c3c; font-style: italic; font-weight: bold; }
+
+      /* Component styles */
+      .top-level { fill: #ffebee; stroke: #d32f2f; stroke-width: 3; }
+      .mixed-level { fill: #fff3e0; stroke: #f57c00; stroke-width: 3; }
+      .arch-specific { fill: #e8f5e8; stroke: #388e3c; stroke-width: 2; }
+      .bottom-level { fill: #e3f2fd; stroke: #1976d2; stroke-width: 2; }
+
+      /* Dependency arrows */
+      .bad-dependency { stroke: #e74c3c; stroke-width: 3; fill: none; marker-end: url(#arrow-red); }
+      .critical-dependency { stroke: #d32f2f; stroke-width: 4; fill: none; marker-end: url(#arrow-red-dark); }
+      .config-dependency { stroke: #ff9800; stroke-width: 3; fill: none; marker-end: url(#arrow-orange); }
+      .normal-dependency { stroke: #2196f3; stroke-width: 2; fill: none; marker-end: url(#arrow-blue); }
+      .correct-dependency { stroke: #4caf50; stroke-width: 3; fill: none; marker-end: url(#arrow-green); }
+      .arch-dependency { stroke: #9c27b0; stroke-width: 2; fill: none; marker-end: url(#arrow-purple); }
+      .circular-dependency { stroke: #795548; stroke-width: 2; fill: none; marker-end: url(#arrow-brown); }
+    </style>
+
+    <!-- Arrow markers -->
+    <marker id="arrow-red" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto">
+      <polygon points="0 0, 12 5, 0 10" fill="#e74c3c" />
+    </marker>
+    <marker id="arrow-red-dark" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto">
+      <polygon points="0 0, 12 5, 0 10" fill="#d32f2f" />
+    </marker>
+    <marker id="arrow-orange" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto">
+      <polygon points="0 0, 12 5, 0 10" fill="#ff9800" />
+    </marker>
+    <marker id="arrow-green" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto">
+      <polygon points="0 0, 12 5, 0 10" fill="#4caf50" />
+    </marker>
+    <marker id="arrow-blue" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto">
+      <polygon points="0 0, 12 5, 0 10" fill="#2196f3" />
+    </marker>
+    <marker id="arrow-purple" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto">
+      <polygon points="0 0, 12 5, 0 10" fill="#9c27b0" />
+    </marker>
+    <marker id="arrow-brown" markerWidth="12" markerHeight="10" refX="11" refY="5" orient="auto">
+      <polygon points="0 0, 12 5, 0 10" fill="#795548" />
+    </marker>
+  </defs>
+
+  <!-- Title -->
+  <text x="700" y="30" text-anchor="middle" class="title-text">AxVisor 组件依赖关系问题图</text>
+
+  <!-- Level 1: Top-level kernel -->
+  <rect x="550" y="80" width="300" height="90" rx="8" class="top-level"/>
+  <text x="700" y="110" text-anchor="middle" class="component-name">axvisor (内核)</text>
+  <text x="700" y="130" text-anchor="middle" class="problem-text">❌ 职责混乱</text>
+  <text x="700" y="150" text-anchor="middle" class="small-text">管理功能 + 底层硬件抽象</text>
+
+  <!-- Level 2: Mixed abstraction layer -->
+  <rect x="100" y="230" width="180" height="80" rx="5" class="mixed-level"/>
+  <text x="190" y="255" text-anchor="middle" class="component-name">axvm</text>
+  <text x="190" y="275" text-anchor="middle" class="normal-text">虚拟机管理</text>
+  <text x="190" y="295" text-anchor="middle" class="small-text">架构代码混合</text>
+
+  <rect x="320" y="230" width="180" height="80" rx="5" class="mixed-level"/>
+  <text x="410" y="255" text-anchor="middle" class="component-name">axvcpu</text>
+  <text x="410" y="275" text-anchor="middle" class="normal-text">vCPU抽象</text>
+  <text x="410" y="295" text-anchor="middle" class="small-text">架构代码混合</text>
+
+  <rect x="540" y="230" width="180" height="80" rx="5" class="mixed-level"/>
+  <text x="630" y="255" text-anchor="middle" class="component-name">axaddrspace</text>
+  <text x="630" y="275" text-anchor="middle" class="normal-text">地址空间管理</text>
+  <text x="630" y="295" text-anchor="middle" class="small-text">Stage-2页表混合</text>
+
+  <rect x="760" y="230" width="180" height="80" rx="5" class="mixed-level"/>
+  <text x="850" y="255" text-anchor="middle" class="component-name">axdevice</text>
+  <text x="850" y="275" text-anchor="middle" class="normal-text">设备虚拟化</text>
+  <text x="850" y="295" text-anchor="middle" class="small-text">架构相关代码混合</text>
+
+  <!-- Level 3: Architecture-specific implementations -->
+  <rect x="100" y="370" width="160" height="70" rx="5" class="arch-specific"/>
+  <text x="180" y="395" text-anchor="middle" class="component-name">arm_vcpu</text>
+  <text x="180" y="415" text-anchor="middle" class="small-text">ARM64 vCPU实现</text>
+
+  <rect x="300" y="370" width="160" height="70" rx="5" class="arch-specific"/>
+  <text x="380" y="395" text-anchor="middle" class="component-name">arm_vgic</text>
+  <text x="380" y="415" text-anchor="middle" class="small-text">虚拟中断控制器</text>
+
+  <rect x="500" y="370" width="160" height="70" rx="5" class="arch-specific"/>
+  <text x="580" y="395" text-anchor="middle" class="component-name">axvmconfig</text>
+  <text x="580" y="415" text-anchor="middle" class="small-text">配置管理</text>
+
+  <rect x="700" y="370" width="160" height="70" rx="5" class="arch-specific"/>
+  <text x="780" y="395" text-anchor="middle" class="component-name">axvisor-api</text>
+  <text x="780" y="415" text-anchor="middle" class="small-text">外部函数接口</text>
+
+  <!-- Level 4: Bottom level -->
+  <rect x="200" y="500" width="180" height="70" rx="5" class="bottom-level"/>
+  <text x="290" y="525" text-anchor="middle" class="component-name">axruntime</text>
+  <text x="290" y="545" text-anchor="middle" class="small-text">运行时环境</text>
+
+  <rect x="420" y="500" width="180" height="70" rx="5" class="bottom-level"/>
+  <text x="510" y="525" text-anchor="middle" class="component-name">axstd</text>
+  <text x="510" y="545" text-anchor="middle" class="small-text">基础系统功能</text>
+
+  <rect x="640" y="500" width="180" height="70" rx="5" class="bottom-level"/>
+  <text x="730" y="525" text-anchor="middle" class="component-name">axhal</text>
+  <text x="730" y="545" text-anchor="middle" class="small-text">硬件抽象层</text>
+
+  <!-- Critical Dependencies: Multiple components depend on axvisor-api -->
+  <path d="M 180 440 Q 400 480, 780 440" class="critical-dependency"/>
+  <text x="400" y="465" class="dependency-label">❌ 依赖axvisor-api</text>
+
+  <path d="M 380 440 L 780 440" class="critical-dependency"/>
+
+  <path d="M 410 310 L 780 370" class="critical-dependency"/>
+
+  <!-- axvcpu also depends on axvisor-api -->
+  <path d="M 410 310 Q 500 350, 780 370" class="critical-dependency"/>
+
+  <!-- Highlight the single point of failure -->
+  <circle cx="780" cy="405" r="95" fill="none" stroke="#d32f2f" stroke-width="3" stroke-dasharray="8,4"/>
+  <text x="780" y="320" text-anchor="middle" class="problem-text" style="font-size: 14px;">⚠️ 单点故障</text>
+  <text x="780" y="335" text-anchor="middle" class="normal-text" style="font-size: 10px;">牵一发而动全身</text>
+
+  <!-- axvmconfig dependency problem (only axvm and axdevice) -->
+  <path d="M 410 310 L 580 370" class="config-dependency"/>
+  <path d="M 850 310 L 580 370" class="config-dependency"/>
+
+  <circle cx="580" cy="405" r="60" fill="none" stroke="#ff9800" stroke-width="3" stroke-dasharray="8,4"/>
+  <text x="580" y="320" text-anchor="middle" class="problem-text" style="font-size: 12px;">⚠️ 配置依赖错误</text>
+  <text x="580" y="475" text-anchor="middle" class="normal-text" style="font-size: 9px;">应仅管理层依赖</text>
+
+  <!-- Correct dependency: axvisor -> axvmconfig -->
+  <path d="M 700 170 L 580 370" class="correct-dependency"/>
+  <text x="690" y="260" class="dependency-label" style="font-size: 10px; fill: #4caf50; font-weight: bold;">✅ 正确依赖</text>
+
+  <!-- Violating dependency: axvisor depends on bottom level -->
+  <path d="M 650 170 Q 500 320, 290 500" class="bad-dependency"/>
+  <text x="450" y="300" class="dependency-label" style="font-size: 10px; fill: #d32f2f; font-weight: bold;">❌ 跳层依赖</text>
+
+  <!-- Normal dependencies -->
+  <path d="M 290 500 L 510 500" class="normal-dependency"/>
+  <path d="M 510 500 L 730 500" class="normal-dependency"/>
+
+  <!-- Architecture mixing dependencies -->
+  <path d="M 190 310 L 180 370" class="arch-dependency"/>
+  <path d="M 410 310 L 180 370" class="arch-dependency"/>
+  <path d="M 630 310 L 380 370" class="arch-dependency"/>
+
+  <!-- Additional real dependencies -->
+  <!-- axvm -> axvcpu -->
+  <path d="M 280 270 L 360 270" class="normal-dependency"/>
+
+  <!-- axvm -> axaddrspace -->
+  <path d="M 360 270 L 540 270" class="normal-dependency"/>
+
+  <!-- axvcpu -> axaddrspace -->
+  <path d="M 360 290 L 540 290" class="normal-dependency"/>
+
+  <!-- Circular dependencies -->
+  <path d="M 280 250 Q 410 200, 540 250" class="circular-dependency"/>
+  <text x="410" y="195" class="dependency-label" style="font-size: 8px;">↻ 循环依赖</text>
+
+  <!-- Legend -->
+  <rect x="950" y="200" width="400" height="320" rx="8" fill="#f9f9f9" stroke="#cccccc" stroke-width="1"/>
+  <text x="1150" y="225" text-anchor="middle" class="component-name" style="font-size: 16px;">图例说明</text>
+
+  <line x1="970" y1="250" x2="1030" y2="250" class="critical-dependency"/>
+  <text x="1040" y="255" class="normal-text">❌ 单点故障依赖 (axvisor-api)</text>
+
+  <line x1="970" y1="280" x2="1030" y2="280" class="config-dependency"/>
+  <text x="1040" y="285" class="normal-text">⚠️ 配置错误依赖 (axvmconfig)</text>
+
+  <line x1="970" y1="310" x2="1030" y2="310" class="correct-dependency"/>
+  <text x="1040" y="315" class="normal-text">✅ 正确依赖</text>
+
+  <line x1="970" y1="340" x2="1030" y2="340" class="bad-dependency"/>
+  <text x="1040" y="345" class="normal-text">❌ 跳层依赖</text>
+
+  <line x1="970" y1="370" x2="1030" y2="370" class="normal-dependency"/>
+  <text x="1040" y="375" class="normal-text">➔ 正常依赖</text>
+
+  <line x1="970" y1="400" x2="1030" y2="400" class="arch-dependency"/>
+  <text x="1040" y="405" class="normal-text">⚪ 架构混合依赖</text>
+
+  <line x1="970" y1="430" x2="1030" y2="430" class="circular-dependency"/>
+  <text x="1040" y="435" class="normal-text">↻ 循环依赖</text>
+
+  <text x="970" y="460" class="problem-text" style="font-size: 12px;">关键问题总结:</text>
+  <text x="970" y="480" class="normal-text">1. arm_vcpu/arm_vgic/axvm/axdevice → axvisor-api</text>
+  <text x="970" y="500" class="normal-text">   → 单点故障风险，牵一发而动全身</text>
+
+  <text x="970" y="525" class="normal-text">2. axvm/axdevice → axvmconfig</text>
+  <text x="970" y="545" class="normal-text">   → 配置依赖错误，应仅管理层依赖</text>
+
+  <text x="970" y="570" class="normal-text">3. axvisor → axruntime/axstd/axhal</text>
+  <text x="970" y="590" class="normal-text">   → 跳层依赖，违反分层原则</text>
+
+  <text x="970" y="615" class="normal-text">4. axvm ↔ axvcpu, axvm ↔ axaddrspace</text>
+  <text x="970" y="635" class="normal-text">   → 循环依赖，破坏组件独立性</text>
+
+</svg>
