@@ -3,21 +3,16 @@
 
 // pub mod config;
 // pub mod images;
-pub mod timer;
+// pub mod timer;
 // pub mod vm_list;
 
 // #[cfg(target_arch = "aarch64")]
 // pub mod fdt;
 
 use core::sync::atomic::{AtomicUsize, Ordering};
-use std::os::arceos::{
-    api::task::{self, AxWaitQueueHandle},
-    modules::axtask::{self, TaskExtRef},
-};
+use std::os::arceos::api::task::AxWaitQueueHandle;
 
-use axerrno::{AxResult, ax_err_type};
-
-pub use timer::init_percpu as init_timer_percpu;
+// pub use timer::init_percpu as init_timer_percpu;
 
 static VMM: AxWaitQueueHandle = AxWaitQueueHandle::new();
 
@@ -30,7 +25,7 @@ static RUNNING_VM_COUNT: AtomicUsize = AtomicUsize::new(0);
 pub fn init() {
     info!("Initializing VMM...");
 
-    axvm::enable_viretualization();
+    axvm::enable_viretualization().unwrap();
 
     // Initialize guest VM according to config file.
     // config::init_guest_vms();
@@ -38,7 +33,7 @@ pub fn init() {
     // Setup vcpus, spawn axtask for primary VCpu.
     info!("Setting up vcpus...");
     // for vm in vm_list::get_vm_list() {
-        // vcpus::setup_vm_primary_vcpu(vm);
+    // vcpus::setup_vm_primary_vcpu(vm);
     // }
 }
 

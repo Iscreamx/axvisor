@@ -1125,6 +1125,7 @@ dependencies = [
 name = "axvm"
 version = "0.1.0"
 dependencies = [
+ "aarch64-cpu 11.1.0",
  "aarch64-cpu-ext",
  "anyhow",
  "arm_vcpu",
@@ -1132,15 +1133,20 @@ dependencies = [
  "axerrno",
  "axhal",
  "axruntime",
+ "axtask",
  "axvmconfig",
  "cfg-if",
  "cpumask",
  "fdt-parser 0.5.1",
+ "kspin",
+ "lazyinit",
  "log",
  "memory_addr",
  "page_table_entry",
  "page_table_multiarch",
+ "percpu",
  "spin 0.10.0",
+ "timer_list",
 ]
 
 [[package]]
