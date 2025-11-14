@@ -31,3 +31,4 @@
 [submodule "modules/x86_vlapic"]
 	path = modules/x86_vlapic
 	url = https://github.com/arceos-hypervisor/x86_vlapic
+

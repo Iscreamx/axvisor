@@ -12,12 +12,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "aarch64-cpu"
+version = "11.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2902b1d87157187000598c0dfc24f438b01792bc10d257c671bd65e24f4b5878"
+dependencies = [
+ "tock-registers 0.10.1",
+]
+
+[[package]]
 name = "aarch64-cpu-ext"
 version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "52dad5cf7342926ce1c375ec680834e56dd3cdbe8b7adf8a6f99b2854cc52c17"
 dependencies = [
- "aarch64-cpu",
+ "aarch64-cpu 10.0.0",
  "tock-registers 0.10.1",
 ]
 
@@ -197,7 +206,7 @@ version = "0.15.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f251a1a74133f802b55eaf5e340107b0024457aa9b2ac3c72074501bfa8509a5"
 dependencies = [
- "aarch64-cpu",
+ "aarch64-cpu 10.0.0",
  "bitflags 2.10.0",
  "enum_dispatch",
  "log",
@@ -228,9 +237,8 @@ dependencies = [
 name = "arm_vcpu"
 version = "0.1.1"
 dependencies = [
- "aarch64-cpu",
+ "aarch64-cpu 11.1.0",
  "axaddrspace 0.2.0",
- "axdevice_base",
  "axerrno",
  "axvcpu",
  "axvisor_api",
@@ -244,7 +252,7 @@ dependencies = [
 name = "arm_vgic"
 version = "0.1.0"
 dependencies = [
- "aarch64-cpu",
+ "aarch64-cpu 10.0.0",
  "aarch64_sysreg",
  "axaddrspace 0.2.0",
  "axdevice_base",
@@ -388,7 +396,7 @@ version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e09bc1235e3da45e942b50f47812f8397ad84cb490264bf914c65ac44e6f8b1d"
 dependencies = [
- "aarch64-cpu",
+ "aarch64-cpu 10.0.0",
  "cfg-if",
  "lazyinit",
  "linkme",
@@ -609,7 +617,7 @@ name = "axhal"
 version = "0.2.0"
 source = "git+https://github.com/arceos-hypervisor/arceos.git?tag=hv-0.4.1#781fd8e99456c531568ccdc906312e7ef98d2fbf"
 dependencies = [
- "aarch64-cpu",
+ "aarch64-cpu 10.0.0",
  "axalloc",
  "axconfig",
  "axcpu",
@@ -793,7 +801,7 @@ name = "axplat-aarch64-dyn"
 version = "0.3.0"
 source = "git+https://github.com/arceos-hypervisor/axplat-aarch64-dyn?tag=v0.3.3#de5acd47da8540f46c81e1eef69af65965404dbd"
 dependencies = [
- "aarch64-cpu",
+ "aarch64-cpu 10.0.0",
  "aarch64-cpu-ext",
  "any-uart",
  "arm-gic-driver",
@@ -821,7 +829,7 @@ name = "axplat-aarch64-peripherals"
 version = "0.2.0"
 source = "git+https://github.com/arceos-hypervisor/axplat_crates.git?tag=vmm-v0.3.0#3345f58f3da5ef2eafcfa1fcf1ac32e5e80e1a7d"
 dependencies = [
- "aarch64-cpu",
+ "aarch64-cpu 10.0.0",
  "arm-gic-driver",
  "arm_pl011",
  "arm_pl031",
@@ -3699,7 +3707,7 @@ version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ba811ef8ca8fb33d776e128624cb4fe25c9804cab96f83b822d4322431e6dd5a"
 dependencies = [
- "aarch64-cpu",
+ "aarch64-cpu 10.0.0",
  "bitflags 2.10.0",
  "memory_addr",
  "x86_64",
@@ -3817,7 +3825,7 @@ version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de8836eb8759cd65e70c73dc0f519345d8a734284e8e4cfc5889a6e445af9f09"
 dependencies = [
- "aarch64-cpu",
+ "aarch64-cpu 10.0.0",
  "aarch64-cpu-ext",
  "any-uart",
  "bitflags 2.10.0",
@@ -4512,7 +4520,7 @@ name = "rk3568_clk"
 version = "0.1.0"
 source = "git+https://github.com/drivercraft/rk3568-clk.git#2b63818f9f9f576d99988fafa70de41112524e00"
 dependencies = [
- "aarch64-cpu",
+ "aarch64-cpu 10.0.0",
  "bare-test-macros",
  "fdt-parser",
  "kspin",
@@ -4786,7 +4794,7 @@ name = "sdmmc"
 version = "0.1.0"
 source = "git+https://github.com/drivercraft/sdmmc.git#cc6ae8e4ecb10b69d1e2fee5502f28198a057bba"
 dependencies = [
- "aarch64-cpu",
+ "aarch64-cpu 10.0.0",
  "arm_pl011",
  "bare-test-macros",
  "bitflags 2.10.0",
@@ -5118,7 +5126,7 @@ version = "0.4.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5a9b180e1abae1127bd99ecee566c3906d8c0f854cb1c442b945afe911e6eb71"
 dependencies = [
- "aarch64-cpu",
+ "aarch64-cpu 10.0.0",
  "aarch64-cpu-ext",
  "any-uart",
  "bindeps-simple",
