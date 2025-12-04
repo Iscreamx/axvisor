@@ -1,5 +1,6 @@
 mod hvc;
 mod ivc;
+mod console;
 
 pub mod config;
 pub mod images;
