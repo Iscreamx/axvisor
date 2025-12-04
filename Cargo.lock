@@ -401,18 +401,20 @@ dependencies = [
 [[package]]
 name = "axdevice"
 version = "0.1.0"
-source = "git+https://github.com/arceos-hypervisor/axdevice.git#60558bb25214c2030651726beddae088d8a1cd8e"
+source = "git+https://github.com/Iscreamx/axdevice.git?branch=virtio-console#644714d2a64550ebb25af2e09ba8ff91c68dc793"
 dependencies = [
  "arm_vgic 0.1.0 (git+https://github.com/arceos-hypervisor/arm_vgic.git)",
  "axaddrspace",
  "axdevice_base",
  "axerrno",
+ "axhal",
  "axvmconfig",
  "cfg-if",
  "log",
  "memory_addr",
  "range-alloc",
  "spin 0.9.8",
+ "virtio-console",
 ]
 
 [[package]]
@@ -629,7 +631,7 @@ dependencies = [
 [[package]]
 name = "axhvc"
 version = "0.1.0"
-source = "git+https://github.com/arceos-hypervisor/axhvc.git#e4ca6f919b9900f35e42b9b30863550a50432220"
+source = "git+https://github.com/Iscreamx/axhvc.git?branch=virtio-console#e4d4f6e259584035252c1406fd9cf8ca00b445d6"
 dependencies = [
  "axerrno",
  "numeric-enum-macro",
@@ -1144,7 +1146,7 @@ dependencies = [
 [[package]]
 name = "axvm"
 version = "0.1.0"
-source = "git+https://github.com/arceos-hypervisor/axvm.git?branch=next#0393f27dea948433e53285a400e356cdfd4c4fa3"
+source = "git+https://github.com/Iscreamx/axvm.git?branch=virtio-console#8f836f69a70310f43fe6942a79b8c4883d76afee"
 dependencies = [
  "arm_vcpu",
  "arm_vgic 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -5950,6 +5952,21 @@ name = "version_check"
 version = "0.9.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
+
+[[package]]
+name = "virtio-console"
+version = "0.1.0"
+source = "git+https://github.com/Iscreamx/virtio-console.git#7563d1ac794c4360053f0535e56caab0c80d3893"
+dependencies = [
+ "axaddrspace",
+ "axdevice_base",
+ "axerrno",
+ "axhal",
+ "axvmconfig",
+ "log",
+ "memory_addr",
+ "spin 0.9.8",
+]
 
 [[package]]
 name = "virtio-drivers"
