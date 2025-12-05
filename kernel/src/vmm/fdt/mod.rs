@@ -55,20 +55,25 @@ pub fn handle_fdt_operations(vm_config: &mut AxVMConfig, vm_create_config: &AxVM
     if let Some(provided_dtb) = get_developer_provided_dtb(vm_config, vm_create_config) {
         info!("VM[{}] found DTB , parsing...", vm_config.id());
         update_provided_fdt(&provided_dtb, host_fdt_bytes, vm_create_config);
+
+        // If the user provides the DTB, we must parse it to identify passthrough devices
+        // and configure the EPT accordingly.
+        if let Some(dtb_arc) = get_vm_dtb_arc(vm_config) {
+            parse_passthrough_devices_address(vm_config, dtb_arc.as_ref());
+        }
     } else {
         info!(
             "VM[{}] DTB not found, generating based on the configuration file.",
             vm_config.id()
         );
+        // If VMM generates the DTB, the passthrough configuration is already populated
+        // directly from the Host FDT inside this function.
         setup_guest_fdt_from_vmm(host_fdt_bytes, vm_config, vm_create_config);
     }
 
-    // Overlay VM config with the given DTB.
+    // Common operations: Parse interrupts from the final DTB (whether provided or generated)
     if let Some(dtb_arc) = get_vm_dtb_arc(vm_config) {
-        let dtb = dtb_arc.as_ref();
-        parse_passthrough_devices_address(vm_config, dtb);
-        parse_emulated_devices_address(vm_config, dtb, &vm_create_config.devices.emu_devices);
-        parse_vm_interrupt(vm_config, dtb);
+        parse_vm_interrupt(vm_config, dtb_arc.as_ref());
     } else {
         error!(
             "VM[{}] DTB not found in memory, skipping...",

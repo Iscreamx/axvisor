@@ -5,7 +5,7 @@ use alloc::{
 use core::ptr::NonNull;
 
 use axaddrspace::GuestPhysAddr;
-use axvm::{VMMemoryRegion, config::AxVMCrateConfig};
+use axvm::{VMMemoryRegion, config::{AxVMCrateConfig, AxVMConfig}};
 use fdt_parser::{Fdt, Node};
 use memory_addr::MemoryAddr;
 use vm_fdt::{FdtWriter, FdtWriterNode};
@@ -502,4 +502,28 @@ pub fn update_cpu_node(fdt: &Fdt, host_fdt: &Fdt, crate_config: &AxVMCrateConfig
     assert_eq!(previous_node_level, 0);
 
     new_fdt.finish().unwrap()
+}
+
+/// Populate passthrough devices configuration from Host FDT based on the provided name list.
+/// This replaces the need to parse the generated Guest FDT.
+pub fn populate_passthrough_devices_from_host(
+    vm_cfg: &mut AxVMConfig,
+    host_fdt: &Fdt,
+    device_paths: &[String],
+) {
+    info!("Populating passthrough config from Host FDT...");
+    vm_cfg.clear_pass_through_devices();
+
+    let all_nodes: Vec<Node> = host_fdt.all_nodes().collect();
+
+    for (index, node) in all_nodes.iter().enumerate() {
+        let node_path = super::build_node_path(&all_nodes, index);
+
+        // Only process nodes that are in our identified passthrough list
+        if device_paths.contains(&node_path) {
+            // Use the helper function directly!
+            super::parser::process_node_address_config(vm_cfg, node);
+        }
+    }
+    debug!("Populated {} passthrough devices from Host FDT", vm_cfg.pass_through_devices().len());
 }
