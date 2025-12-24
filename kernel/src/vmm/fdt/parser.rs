@@ -1,7 +1,7 @@
 //! FDT parsing and processing functionality.
 
 use alloc::{string::ToString, vec::Vec};
-use axvm::config::{AxVMConfig, AxVMCrateConfig, PassThroughDeviceConfig};
+use axvm::config::{AxVMConfig, AxVMCrateConfig, PassThroughDeviceConfig, EmulatedDeviceConfig};
 use fdt_parser::{Fdt, FdtHeader, PciRange, PciSpace};
 
 use crate::vmm::fdt::crate_guest_fdt_with_cache;
@@ -301,6 +301,51 @@ pub fn parse_passthrough_devices_address(vm_cfg: &mut AxVMConfig, dtb: &[u8]) {
             "Finished parsing passthrough devices, total: {}",
             vm_cfg.pass_through_devices().len()
         );
+    }
+}
+
+/// Parse and handle emulated devices address from FDT
+/// This function identifies emulated devices that were incorrectly identified as passthrough devices
+/// and removes them from the passthrough configuration to prevent EPT mapping.
+pub fn parse_emulated_devices_address(
+    vm_cfg: &mut AxVMConfig,
+    _dtb: &[u8],
+    emu_devices: &[EmulatedDeviceConfig],
+) {
+    let all_detected_devices = vm_cfg.pass_through_devices().to_vec();
+    let mut real_passthrough_devices = Vec::new();
+    let mut emulated_count = 0;
+
+    for dev in all_detected_devices {
+        // Check if this device matches any configured emulated device
+        // use base_gpa as the unique identifier
+
+        if dev.base_gpa == 0x0800_0000 || dev.base_gpa == 0x080a_0000 || dev.base_gpa == 0x0808_0000 {
+            warn!("Manual skip emulated check for GIC/ITS device: {} @ {:#x}", dev.name, dev.base_gpa);
+            real_passthrough_devices.push(dev);
+            continue;
+        }
+
+        let is_emulated = emu_devices.iter().any(|emu| emu.base_gpa == dev.base_gpa);
+
+        if is_emulated {
+            info!(
+                "Identified emulated device in FDT: {} @ {:#x} (Removed from passthrough list)",
+                dev.name, dev.base_gpa
+            );
+            emulated_count += 1;
+        } else {
+            real_passthrough_devices.push(dev);
+        }
+    }
+
+    if emulated_count > 0 {
+        // Update the passthrough device list with only real passthrough devices
+        vm_cfg.clear_pass_through_devices();
+        for dev in real_passthrough_devices {
+            vm_cfg.add_pass_through_device(dev);
+        }
+        debug!("Removed {} emulated devices from EPT mapping configuration", emulated_count);
     }
 }
 
