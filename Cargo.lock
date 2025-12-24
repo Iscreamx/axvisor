@@ -739,33 +739,6 @@ dependencies = [
 [[package]]
 name = "axplat-aarch64-dyn"
 version = "0.4.0"
-dependencies = [
- "aarch64-cpu",
- "aarch64-cpu-ext",
- "any-uart",
- "arm-gic-driver",
- "axconfig-macros",
- "axcpu",
- "axplat",
- "fdt-parser",
- "heapless 0.8.0",
- "lazyinit",
- "log",
- "memory_addr",
- "page_table_entry",
- "paste",
- "percpu",
- "rdif-intc",
- "rdrive",
- "serde",
- "somehal",
- "spin 0.10.0",
- "toml 0.8.23",
-]
-
-[[package]]
-name = "axplat-aarch64-dyn"
-version = "0.4.0"
 source = "git+https://github.com/arceos-hypervisor/axplat-aarch64-dyn.git?tag=v0.4.0#05d5acd43d925807496255a9b9e1aa2d272bb591"
 dependencies = [
  "aarch64-cpu",
@@ -939,7 +912,7 @@ dependencies = [
  "axmm",
  "axnet",
  "axplat",
- "axplat-aarch64-dyn 0.4.0 (git+https://github.com/arceos-hypervisor/axplat-aarch64-dyn.git?tag=v0.4.0)",
+ "axplat-aarch64-dyn",
  "axplat-x86-qemu-q35",
  "axtask",
  "cfg-if",
@@ -6044,7 +6017,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 [[package]]
 name = "virtio-console"
 version = "0.1.0"
-source = "git+https://github.com/Iscreamx/virtio-console.git#93cbe8cca48e31e6d1758b1bfeb6baabe0a054d5"
+source = "git+https://github.com/Iscreamx/virtio-console.git#f04c5baed435fe8bcb641f6f4e9abe5aaa4c1596"
 dependencies = [
  "axaddrspace",
  "axdevice_base",
