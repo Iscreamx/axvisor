@@ -59,11 +59,11 @@ axplat = {git = "https://github.com/arceos-org/axplat_crates.git", tag = "dev-v0
 
 # System dependent modules provided by ArceOS-Hypervisor.
 axaddrspace = "0.1.1"
-axhvc = {git = "https://github.com/arceos-hypervisor/axhvc.git"}
+axhvc = {git = "https://github.com/Iscreamx/axhvc.git", branch = "virtio-console"}
 axklib = {git = "https://github.com/arceos-hypervisor/axklib.git"}
 axruntime = {path = "modules/axruntime"}
 axvcpu = "0.1"
-axvm = {git = "https://github.com/arceos-hypervisor/axvm.git", branch = "next"}
+axvm = {git = "https://github.com/Iscreamx/axvm.git", branch = "virtio-console"}
 
 # System independent crates provided by ArceOS, these crates could be imported by remote url. 
 axerrno = "0.2"
@@ -79,7 +79,7 @@ rdrive = "0.18"
 
 vm-fdt = {git = "https://github.com/bullhh/vm-fdt.git", default-features = false, features = ["alloc"]}
 
-axdevice = {git = "https://github.com/arceos-hypervisor/axdevice.git"}
+axdevice = { git = "https://github.com/Iscreamx/axdevice.git", branch = "virtio-console"}
 axdevice_base = "0.1"
 axvisor_api = "0.1"
 driver = {path = "modules/driver"}

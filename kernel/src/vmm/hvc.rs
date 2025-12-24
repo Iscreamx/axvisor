@@ -1,9 +1,10 @@
 use axaddrspace::{GuestPhysAddr, MappingFlags};
 use axerrno::{AxResult, ax_err, ax_err_type};
 use axhvc::{HyperCallCode, HyperCallResult};
+use cpumask::CpuMask;
 
 use crate::vmm::ivc::{self, IVCChannel};
-use crate::vmm::{VCpuRef, VMRef};
+use crate::vmm::{VCpuRef, VMRef, vm_list};
 
 pub struct HyperCall {
     _vcpu: VCpuRef,
@@ -137,6 +138,30 @@ impl HyperCall {
                     ivc::unsubscribe_from_channel_of_publisher(publisher_vm_id, key, self.vm.id())?;
                 self.vm.unmap_region(base_gpa, size)?;
 
+                Ok(0)
+            }
+            HyperCallCode::HIVCSendIPI => {
+                let target_vm_id = self.args[1] as usize;
+                let target_vcpu_id = self.args[2] as usize;
+                let vector = self.args[3] as usize;
+
+                info!(
+                    "VM[{}] HyperCall HIVCSendIpi: Injecting IRQ {} to VM[{}] vCPU[{}]",
+                    self.vm.id(),
+                    vector,
+                    target_vm_id,
+                    target_vcpu_id
+                );
+
+                if let Some(target_vm) = vm_list::get_vm_by_id(target_vm_id) {
+                    let mask = CpuMask::one_shot(target_vcpu_id);
+
+                    if let Err(e) = target_vm.inject_interrupt_to_vcpu(mask, vector) {
+                        warn!("Failed to inject interrupt: {:?}", e);
+                    }
+                } else {
+                    warn!("Target VM {} not found", target_vm_id);
+                }
                 Ok(0)
             }
             _ => {

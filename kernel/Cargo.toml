@@ -8,6 +8,7 @@ name = "axvisor"
 ept-level-4 = ["axaddrspace/4-level-ept"]
 fs = ["axstd/fs", "axruntime/fs"]
 dyn-plat = ["axstd/myplat", "axstd/driver-dyn", "axruntime/driver-dyn"]
+ipi = ["axstd/ipi"]
 
 [dependencies]
 bitflags.workspace = true

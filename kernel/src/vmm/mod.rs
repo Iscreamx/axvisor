@@ -119,17 +119,26 @@ pub fn with_vm_and_vcpu_on_pcpu(
         return Ok(());
     }
 
-    // The target vCPU is not the current task, send an IPI to the target physical CPU.
     drop(guard);
 
-    let _pcpu_id = vcpus::with_vcpu_task(vm_id, vcpu_id, |task| task.cpu_id())
-        .ok_or_else(|| ax_err_type!(NotFound))?;
+    #[cfg(feature = "ipi")]
+    {
+        use axstd::os::arceos::modules::axipi;
 
-    unimplemented!();
-    // use std::os::arceos::modules::axipi;
-    // Ok(axipi::send_ipi_event_to_one(pcpu_id as usize, move || {
-    // with_vm_and_vcpu_on_pcpu(vm_id, vcpu_id, f);
-    // }))
+        let pcpu_id = vcpus::with_vcpu_task(vm_id, vcpu_id, |task| {
+            task.cpumask().first_index().unwrap_or(task.cpu_id() as usize)
+        }).ok_or_else(|| ax_err_type!(NotFound))?;
+
+        axipi::run_on_cpu(pcpu_id.try_into().unwrap(), move || {
+            with_vm_and_vcpu(vm_id, vcpu_id, f);
+        });
+    }
+
+    #[cfg(not(feature = "ipi"))]
+    {
+        warn!("IPI feature is not enabled, cross-core execution skipped.");
+    }
+    Ok(())
 }
 
 pub fn add_running_vm_count(count: usize) {
