@@ -1,10 +1,12 @@
 use axaddrspace::{GuestPhysAddr, MappingFlags};
 use axerrno::{AxResult, ax_err, ax_err_type};
 use axhvc::{HyperCallCode, HyperCallResult};
+use alloc::vec::Vec;
 use cpumask::CpuMask;
 
 use crate::vmm::ivc::{self, IVCChannel};
 use crate::vmm::{VCpuRef, VMRef, vm_list};
+use crate::vmm::console::ConsoleConnectionManager;
 
 pub struct HyperCall {
     _vcpu: VCpuRef,
@@ -137,6 +139,89 @@ impl HyperCall {
                 let (base_gpa, size) =
                     ivc::unsubscribe_from_channel_of_publisher(publisher_vm_id, key, self.vm.id())?;
                 self.vm.unmap_region(base_gpa, size)?;
+
+                Ok(0)
+            }
+                        HyperCallCode::HConEstablishConnect => {
+                info!(
+                    "VM[{}] HyperCall {:?}",
+                    self.vm.id(),
+                    self.code,
+                );
+                let num_ids = self.args[1] as usize;
+                let ids: Vec<usize> = self.args[2..2+num_ids].iter().map(|&id| id as usize).collect();
+                info!(
+                    "Establishing connection between VM[{}] and VM IDs: {:?}",
+                    self.vm.id(),
+                    ids
+                );
+
+                let buffer_size = 4096;
+                let mut owner_vm_ids = Vec::new();
+                let mut peer_vm_ids = Vec::new();
+                let mut buffer_addrs = Vec::new();
+
+                for &dst_vm_id in &ids {
+                    let (buf_src_to_dst, buf_dst_to_src) =
+                        ConsoleConnectionManager::establish_connection(self.vm.id(), dst_vm_id, buffer_size)
+                            .map_err(|e| {
+                                warn!("Failed to allocate console buffer for VM[{}]<->VM[{}]: {:?}", self.vm.id(), dst_vm_id, e);
+                                ax_err_type!(NoMemory)
+                            })?;
+                    // Send buffer (this VM -> peer)
+                    owner_vm_ids.push(buf_src_to_dst.owner_vm_id);
+                    peer_vm_ids.push(buf_src_to_dst.peer_vm_id);
+                    buffer_addrs.push(buf_src_to_dst.buffer_base.as_usize());
+
+                    // Receive buffer (peer -> this VM)
+                    owner_vm_ids.push(buf_dst_to_src.owner_vm_id);
+                    peer_vm_ids.push(buf_dst_to_src.peer_vm_id);
+                    buffer_addrs.push(buf_dst_to_src.buffer_base.as_usize());
+                }
+
+                // Batch update devices (update both send and receive buffers)
+                let _ = self.vm.establish_console_connection(
+                    &owner_vm_ids,
+                    &peer_vm_ids,
+                    &buffer_addrs,
+                );
+
+                Ok(0)
+            }
+            HyperCallCode::HConUnEstablishConnect => {
+                info!(
+                    "VM[{}] HyperCall {:?}",
+                    self.vm.id(),
+                    self.code,
+                );
+                let num_ids = self.args[1] as usize;
+                let ids: Vec<usize> = self.args[2..2+num_ids].iter().map(|&id| id as usize).collect();
+                info!(
+                    "Removing connection between VM[{}] and VM IDs: {:?}",
+                    self.vm.id(),
+                    ids
+                );
+
+                let mut owner_vm_ids = Vec::new();
+                let mut peer_vm_ids = Vec::new();
+
+                for &dst_vm_id in &ids {
+                    // Find the allocated buffer and get owner and peer
+                    if let Some((buf_src_to_dst, buf_dst_to_src)) = ConsoleConnectionManager::get_buffers(self.vm.id(), dst_vm_id) {
+                        owner_vm_ids.push(buf_src_to_dst.owner_vm_id);
+                        peer_vm_ids.push(buf_src_to_dst.peer_vm_id);
+
+                        owner_vm_ids.push(buf_dst_to_src.owner_vm_id);
+                        peer_vm_ids.push(buf_dst_to_src.peer_vm_id);
+                    }
+                    ConsoleConnectionManager::remove_connection(self.vm.id(), dst_vm_id);
+                }
+
+                // Batch update devices again
+                let _ = self.vm.remove_console_connection(
+                    &owner_vm_ids,
+                    &peer_vm_ids,
+                );
 
                 Ok(0)
             }
