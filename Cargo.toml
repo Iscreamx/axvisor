@@ -81,7 +81,7 @@ vm-fdt = {git = "https://github.com/bullhh/vm-fdt.git", default-features = false
 
 axdevice = { git = "https://github.com/Iscreamx/axdevice.git", branch = "virtio-console"}
 axdevice_base = "0.1"
-axvisor_api = "0.1"
+axvisor_api ={ git = "https://github.com/Iscreamx/axvisor_api.git", branch = "dev/device"}
 driver = {path = "modules/driver"}
 
 # platform

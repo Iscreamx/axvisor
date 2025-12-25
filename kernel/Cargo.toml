@@ -55,7 +55,7 @@ vm-fdt = {workspace = true, default-features = false, features = ["alloc"]}
 
 axdevice.workspace = true
 axdevice_base = "0.1"
-axvisor_api = "0.1"
+axvisor_api ={ git = "https://github.com/Iscreamx/axvisor_api.git", branch = "dev/device"}
 driver.workspace = true
 
 

@@ -195,9 +195,9 @@ dependencies = [
 
 [[package]]
 name = "arm-gic-driver"
-version = "0.15.8"
+version = "0.15.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f251a1a74133f802b55eaf5e340107b0024457aa9b2ac3c72074501bfa8509a5"
+checksum = "ad71090ed958939b87f6c99e0acd3c476b3a0dbd54f2e2d9aa1ca1f40dc4417e"
 dependencies = [
  "aarch64-cpu",
  "bitflags 2.10.0",
@@ -236,7 +236,7 @@ dependencies = [
  "axdevice_base",
  "axerrno 0.1.2",
  "axvcpu",
- "axvisor_api",
+ "axvisor_api 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log",
  "numeric-enum-macro",
  "percpu",
@@ -254,7 +254,7 @@ dependencies = [
  "axaddrspace",
  "axdevice_base",
  "axerrno 0.1.2",
- "axvisor_api",
+ "axvisor_api 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bitmaps",
  "log",
  "memory_addr",
@@ -397,7 +397,7 @@ dependencies = [
 [[package]]
 name = "axdevice"
 version = "0.1.0"
-source = "git+https://github.com/Iscreamx/axdevice.git?branch=virtio-console#699f58e107a6fd42e1049d6b579580fc9e379fa2"
+source = "git+https://github.com/Iscreamx/axdevice.git?branch=virtio-console#e9ed04494cf61447977893ba3292c2e201a2a24a"
 dependencies = [
  "arm_vgic",
  "axaddrspace",
@@ -646,10 +646,11 @@ dependencies = [
 
 [[package]]
 name = "axio"
-version = "0.2.0"
+version = "0.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "23e797ff4cfd17460c7b8742222a2cadd72a2f4966f0057d36b5925fabf534f7"
+checksum = "92a675c98dc5af5cca52cfdd1044ae960816909853cd13870737d55cb23f5d4e"
 dependencies = [
+ "autocfg",
  "axerrno 0.1.2",
 ]
 
@@ -983,9 +984,9 @@ dependencies = [
 
 [[package]]
 name = "axum"
-version = "0.8.7"
+version = "0.8.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5b098575ebe77cb6d14fc7f32749631a6e44edbef6b796f89b020e99ba20d425"
+checksum = "8b52af3cb4058c895d37317bb27508dccc8e5f2d39454016b297bf4a400597b8"
 dependencies = [
  "axum-core",
  "bytes",
@@ -1040,7 +1041,7 @@ source = "git+https://github.com/arceos-hypervisor/axvcpu.git?branch=next#343ec3
 dependencies = [
  "axaddrspace",
  "axerrno 0.1.2",
- "axvisor_api",
+ "axvisor_api 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "memory_addr",
  "percpu",
 ]
@@ -1061,7 +1062,7 @@ dependencies = [
  "axruntime",
  "axstd",
  "axvcpu",
- "axvisor_api",
+ "axvisor_api 0.1.0 (git+https://github.com/Iscreamx/axvisor_api.git?branch=dev%2Fdevice)",
  "axvm",
  "bitflags 2.10.0",
  "byte-unit",
@@ -1087,7 +1088,7 @@ dependencies = [
  "spin 0.9.8",
  "syn 2.0.111",
  "timer_list",
- "toml 0.9.9+spec-1.0.0",
+ "toml 0.9.10+spec-1.1.0",
  "vm-fdt 0.3.0 (git+https://github.com/bullhh/vm-fdt.git)",
 ]
 
@@ -1098,7 +1099,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa7233b2a1338dc06a80e2779b572b4df02007ea128ef7b235b66fc3eeac0ca6"
 dependencies = [
  "axaddrspace",
- "axvisor_api_proc",
+ "axvisor_api_proc 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "crate_interface",
+ "memory_addr",
+]
+
+[[package]]
+name = "axvisor_api"
+version = "0.1.0"
+source = "git+https://github.com/Iscreamx/axvisor_api.git?branch=dev%2Fdevice#3a791a3db9ffa9cbba701ad84425cbf43c8075ad"
+dependencies = [
+ "axaddrspace",
+ "axvisor_api_proc 0.1.0 (git+https://github.com/Iscreamx/axvisor_api.git?branch=dev%2Fdevice)",
  "crate_interface",
  "memory_addr",
 ]
@@ -1116,9 +1128,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "axvisor_api_proc"
+version = "0.1.0"
+source = "git+https://github.com/Iscreamx/axvisor_api.git?branch=dev%2Fdevice#3a791a3db9ffa9cbba701ad84425cbf43c8075ad"
+dependencies = [
+ "proc-macro-crate",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.111",
+]
+
+[[package]]
 name = "axvm"
 version = "0.1.0"
-source = "git+https://github.com/Iscreamx/axvm.git?branch=virtio-console#d4153cb42dfa98a83ac55891f1e78c8123aa117c"
+source = "git+https://github.com/Iscreamx/axvm.git?branch=virtio-console#227afa113bb9b8e56982f3fe570dc2d08a4ca073"
 dependencies = [
  "arm_vcpu",
  "arm_vgic",
@@ -1153,7 +1176,7 @@ dependencies = [
  "schemars",
  "serde",
  "serde_repr",
- "toml 0.9.9+spec-1.0.0",
+ "toml 0.9.10+spec-1.1.0",
 ]
 
 [[package]]
@@ -1216,7 +1239,7 @@ dependencies = [
  "cargo_metadata 0.20.0",
  "flate2",
  "rand 0.9.2",
- "reqwest 0.12.26",
+ "reqwest 0.12.28",
  "tar",
 ]
 
@@ -1460,9 +1483,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.2.49"
+version = "1.2.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "90583009037521a116abf44494efecd645ba48b6622457080f080b85544e2215"
+checksum = "9f50d563227a1c37cc0a263f64eca3334388c01c5e4c4861a9def205c614383c"
 dependencies = [
  "find-msvc-tools",
  "shlex",
@@ -1748,7 +1771,7 @@ dependencies = [
  "document-features",
  "mio",
  "parking_lot",
- "rustix 1.1.2",
+ "rustix 1.1.3",
  "signal-hook",
  "signal-hook-mio",
  "winapi",
@@ -1965,18 +1988,18 @@ dependencies = [
 
 [[package]]
 name = "derive_more"
-version = "2.1.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "10b768e943bed7bf2cab53df09f4bc34bfd217cdb57d971e769874c9a6710618"
+checksum = "d751e9e49156b02b44f9c1815bcb94b984cdcc4396ecc32521c739452808b134"
 dependencies = [
  "derive_more-impl",
 ]
 
 [[package]]
 name = "derive_more-impl"
-version = "2.1.0"
+version = "2.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6d286bfdaf75e988b4a78e013ecd79c581e06399ab53fbacd2d916c2f904f30b"
+checksum = "799a97264921d8623a957f6c3b9011f3b5492f557bbb7a5a19b7fa6d06ba8dcb"
 dependencies = [
  "convert_case 0.10.0",
  "proc-macro2",
@@ -3046,15 +3069,15 @@ dependencies = [
 
 [[package]]
 name = "itoa"
-version = "1.0.15"
+version = "1.0.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a5f13b858c8d314ee3e8f639011f7ccefe71f97f96e50151fb991f267928e2c"
+checksum = "7ee5b5339afb4c41626dde77b7a611bd4f2c202b897852b4bcf5d03eddc61010"
 
 [[package]]
 name = "jiff"
-version = "0.2.16"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "49cce2b81f2098e7e3efc35bc2e0a6b7abec9d34128283d7a26fa8f32a6dbb35"
+checksum = "a87d9b8105c23642f50cbbae03d1f75d8422c5cb98ce7ee9271f7ff7505be6b8"
 dependencies = [
  "jiff-static",
  "log",
@@ -3065,9 +3088,9 @@ dependencies = [
 
 [[package]]
 name = "jiff-static"
-version = "0.2.16"
+version = "0.2.17"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "980af8b43c3ad5d8d349ace167ec8170839f753a42d233ba19e08afe1850fa69"
+checksum = "b787bebb543f8969132630c51fd0afab173a86c6abae56ff3b9e5e3e3f9f6e58"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -3092,7 +3115,7 @@ dependencies = [
  "serde_json",
  "thiserror 2.0.17",
  "tokio",
- "toml 0.9.9+spec-1.0.0",
+ "toml 0.9.10+spec-1.1.0",
  "tower",
  "tower-http",
 ]
@@ -3479,9 +3502,9 @@ checksum = "8d5439c4ad607c3c23abf66de8c8bf57ba8adcd1f129e699851a6e43935d339d"
 
 [[package]]
 name = "network-interface"
-version = "2.0.3"
+version = "2.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "07709a6d4eba90ab10ec170a0530b3aafc81cb8a2d380e4423ae41fc55fe5745"
+checksum = "5e79101e6efcffacab279462884a7eebf65ea5f4ac2cc727b60c715a9aa04722"
 dependencies = [
  "cc",
  "libc",
@@ -3670,9 +3693,9 @@ dependencies = [
 
 [[package]]
 name = "ostool"
-version = "0.8.4"
+version = "0.8.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1bd45de0e8a93b3cec89fa5a9a948c8d99a8d67058a1188007b980777169881a"
+checksum = "b6606e47adb53299e44254202d83481ce0bf6624eb8c3f8fca6ee4241c37e7a9"
 dependencies = [
  "anyhow",
  "byte-unit",
@@ -3691,7 +3714,7 @@ dependencies = [
  "object",
  "ratatui",
  "regex",
- "reqwest 0.12.26",
+ "reqwest 0.12.28",
  "schemars",
  "serde",
  "serde_json",
@@ -3700,7 +3723,7 @@ dependencies = [
  "tar",
  "tftpd",
  "tokio",
- "toml 0.9.9+spec-1.0.0",
+ "toml 0.9.10+spec-1.1.0",
  "uboot-shell",
  "ureq",
 ]
@@ -3804,9 +3827,9 @@ checksum = "9b4f627cb1b25917193a259e49bdad08f671f8d9708acfd5fe0a8c1455d87220"
 
 [[package]]
 name = "percpu"
-version = "0.2.0"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "01e56c0c558952222967b592899f98765b48590e7bd7403bfd7075f73afc6ed6"
+checksum = "54ca06381bdd16a5397e23cf61d347b539c765e2c20b2ecc5cb36df88695c1f7"
 dependencies = [
  "cfg-if",
  "percpu_macros",
@@ -3816,10 +3839,11 @@ dependencies = [
 
 [[package]]
 name = "percpu_macros"
-version = "0.2.0"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a9f4cc54a2e471ff72f1499461ba381ad4eae9cbd60d29c258545b995e406e0"
+checksum = "a933d46113c0171aee86623311a9367f2ec3a86dab0a96aba1d5bc627473617e"
 dependencies = [
+ "cfg-if",
  "proc-macro2",
  "quote",
  "syn 2.0.111",
@@ -3907,9 +3931,9 @@ checksum = "7edddbd0b52d732b21ad9a5fab5c704c14cd949e5e9a1ec5929a24fded1b904c"
 
 [[package]]
 name = "portable-atomic"
-version = "1.11.1"
+version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f84267b20a16ea918e43c6a88433c2d54fa145c92a811b5b047ccbe153674483"
+checksum = "f59e70c4aef1e55797c2e8fd94a4f2a973fc972cfde0e0b05f683667b0cd39dd"
 
 [[package]]
 name = "portable-atomic-util"
@@ -4422,9 +4446,9 @@ dependencies = [
 
 [[package]]
 name = "reqwest"
-version = "0.12.26"
+version = "0.12.28"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3b4c14b2d9afca6a60277086b0cc6a6ae0b568f6f7916c943a8cdc79f8be240f"
+checksum = "eddd3ca559203180a307f12d114c268abf583f59b03cb906fd0b3ff8646c1147"
 dependencies = [
  "base64 0.22.1",
  "bytes",
@@ -4547,7 +4571,7 @@ dependencies = [
  "axaddrspace",
  "axerrno 0.1.2",
  "axvcpu",
- "axvisor_api",
+ "axvisor_api 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bit_field",
  "bitflags 2.10.0",
  "cfg-if",
@@ -4693,9 +4717,9 @@ dependencies = [
 
 [[package]]
 name = "rustix"
-version = "1.1.2"
+version = "1.1.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cd15f8a2c5551a84d56efdc1cd049089e409ac19a3072d5037a17fd70719ff3e"
+checksum = "146c9e247ccc180c1f61615433868c99f3de3ae256a30a43b49f67c2d9171f34"
 dependencies = [
  "bitflags 2.10.0",
  "errno",
@@ -4788,9 +4812,9 @@ dependencies = [
 
 [[package]]
 name = "ryu"
-version = "1.0.20"
+version = "1.0.21"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "28d3b2b1366ec20994f1fd18c3c594f05c5dd4bc44d8bb0c1c632c8d6829481f"
+checksum = "62049b2877bf12821e8f9ad256ee38fdc31db7387ec2d3b3f403024de2034aea"
 
 [[package]]
 name = "sbi-rt"
@@ -4843,12 +4867,12 @@ dependencies = [
 
 [[package]]
 name = "scope-local"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "231e441739fbe668e91acf8440a0b1ac83c73faec7a6d984190ee25354c2ec9a"
+checksum = "4a7d5ed5013e6436fcd78f2bcd3892a6286ef9ce6c9b61504d4c4a08d6a40eab"
 dependencies = [
  "percpu",
- "spin 0.9.8",
+ "spin 0.10.0",
 ]
 
 [[package]]
@@ -4980,15 +5004,15 @@ dependencies = [
 
 [[package]]
 name = "serde_json"
-version = "1.0.145"
+version = "1.0.147"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "402a6f66d8c709116cf22f558eab210f5a50187f702eb4d7e5ef38d9a7f1c79c"
+checksum = "6af14725505314343e673e9ecb7cd7e8a36aa9791eb936235a3567cc31447ae4"
 dependencies = [
  "itoa",
  "memchr",
- "ryu",
  "serde",
  "serde_core",
+ "zmij",
 ]
 
 [[package]]
@@ -5213,7 +5237,7 @@ dependencies = [
  "serde",
  "smccc",
  "spin 0.10.0",
- "toml 0.9.9+spec-1.0.0",
+ "toml 0.9.10+spec-1.1.0",
  "url",
 ]
 
@@ -5433,14 +5457,14 @@ dependencies = [
 
 [[package]]
 name = "tempfile"
-version = "3.23.0"
+version = "3.24.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d31c77bdf42a745371d260a26ca7163f1e0924b64afa0b688e61b5a9fa02f16"
+checksum = "655da9c7eb6305c55742045d5a8d2037996d61d8de95806335c7c86ce0f82e9c"
 dependencies = [
  "fastrand",
  "getrandom 0.3.4",
  "once_cell",
- "rustix 1.1.2",
+ "rustix 1.1.3",
  "windows-sys 0.61.2",
 ]
 
@@ -5647,14 +5671,14 @@ dependencies = [
 
 [[package]]
 name = "toml"
-version = "0.9.9+spec-1.0.0"
+version = "0.9.10+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb5238e643fc34a1d5d7e753e1532a91912d74b63b92b3ea51fde8d1b7bc79dd"
+checksum = "0825052159284a1a8b4d6c0c86cbc801f2da5afd2b225fa548c72f2e74002f48"
 dependencies = [
  "indexmap",
  "serde_core",
  "serde_spanned 1.0.4",
- "toml_datetime 0.7.4+spec-1.0.0",
+ "toml_datetime 0.7.5+spec-1.1.0",
  "toml_parser",
  "toml_writer",
  "winnow",
@@ -5671,9 +5695,9 @@ dependencies = [
 
 [[package]]
 name = "toml_datetime"
-version = "0.7.4+spec-1.0.0"
+version = "0.7.5+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "fe3cea6b2aa3b910092f6abd4053ea464fab5f9c170ba5e9a6aead16ec4af2b6"
+checksum = "92e1cfed4a3038bc5a127e35a2d360f145e1f4b971b551a2ba5fd7aedf7e1347"
 dependencies = [
  "serde_core",
 ]
@@ -5699,16 +5723,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "84c8b9f757e028cee9fa244aea147aab2a9ec09d5325a9b01e0a49730c2b5269"
 dependencies = [
  "indexmap",
- "toml_datetime 0.7.4+spec-1.0.0",
+ "toml_datetime 0.7.5+spec-1.1.0",
  "toml_parser",
  "winnow",
 ]
 
 [[package]]
 name = "toml_parser"
-version = "1.0.5+spec-1.0.0"
+version = "1.0.6+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4c03bee5ce3696f31250db0bbaff18bc43301ce0e8db2ed1f07cbb2acf89984c"
+checksum = "a3198b4b0a8e11f09dd03e133c0280504d0801269e9afa46362ffde1cbeebf44"
 dependencies = [
  "winnow",
 ]
@@ -5721,9 +5745,9 @@ checksum = "5d99f8c9a7727884afe522e9bd5edbfc91a3312b36a77b5fb8926e4c31a41801"
 
 [[package]]
 name = "toml_writer"
-version = "1.0.5+spec-1.0.0"
+version = "1.0.6+spec-1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a9cd6190959dce0994aa8970cd32ab116d1851ead27e866039acaf2524ce44fa"
+checksum = "ab16f14aed21ee8bfd8ec22513f7287cd4a91aa92e44edfe2c17ddd004e92607"
 
 [[package]]
 name = "tower"
@@ -5783,9 +5807,9 @@ checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
 
 [[package]]
 name = "tracing"
-version = "0.1.43"
+version = "0.1.44"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2d15d90a0b5c19378952d479dc858407149d7bb45a14de0142f6c534b16fc647"
+checksum = "63e71662fa4b2a2c3a26f570f037eb95bb1f85397f3cd8076caed2f026a6d100"
 dependencies = [
  "log",
  "pin-project-lite",
@@ -5794,9 +5818,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-core"
-version = "0.1.35"
+version = "0.1.36"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7a04e24fab5c89c6a36eb8558c9656f30d81de51dfa4d3b45f26b21d61fa0a6c"
+checksum = "db97caf9d906fbde555dd62fa95ddba9eecfd14cb388e4f491a66d74cd5fb79a"
 dependencies = [
  "once_cell",
 ]
@@ -6017,12 +6041,13 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 [[package]]
 name = "virtio-console"
 version = "0.1.0"
-source = "git+https://github.com/Iscreamx/virtio-console.git#f04c5baed435fe8bcb641f6f4e9abe5aaa4c1596"
+source = "git+https://github.com/Iscreamx/virtio-console.git#e38299bd76c48ceb60fcd5006f4509a4300c1599"
 dependencies = [
  "axaddrspace",
  "axdevice_base",
  "axerrno 0.1.2",
  "axhal",
+ "axvisor_api 0.1.0 (git+https://github.com/Iscreamx/axvisor_api.git?branch=dev%2Fdevice)",
  "axvmconfig",
  "log",
  "memory_addr",
@@ -6592,7 +6617,7 @@ dependencies = [
  "axdevice_base",
  "axerrno 0.1.2",
  "axvcpu",
- "axvisor_api",
+ "axvisor_api 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bit_field",
  "bitflags 2.10.0",
  "cfg-if",
@@ -6618,7 +6643,7 @@ dependencies = [
  "axaddrspace",
  "axdevice_base",
  "axerrno 0.1.2",
- "axvisor_api",
+ "axvisor_api 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "bit",
  "log",
  "memory_addr",
@@ -6633,7 +6658,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "32e45ad4206f6d2479085147f02bc2ef834ac85886624a23575ae137c8aa8156"
 dependencies = [
  "libc",
- "rustix 1.1.2",
+ "rustix 1.1.3",
 ]
 
 [[package]]
@@ -6655,14 +6680,14 @@ dependencies = [
  "flate2",
  "jkconfig",
  "ostool",
- "reqwest 0.12.26",
+ "reqwest 0.12.28",
  "schemars",
  "serde",
  "serde_json",
  "sha2",
  "tar",
  "tokio",
- "toml 0.9.9+spec-1.0.0",
+ "toml 0.9.10+spec-1.1.0",
 ]
 
 [[package]]
@@ -6788,3 +6813,9 @@ dependencies = [
  "quote",
  "syn 2.0.111",
 ]
+
+[[package]]
+name = "zmij"
+version = "0.1.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f1dccf46b25b205e4bebe1d5258a991df1cc17801017a845cb5b3fe0269781aa"

@@ -8,7 +8,7 @@ use memory_addr::PAGE_SIZE_4K;
 use page_table_multiarch::PagingHandler;
 
 use arceos::modules::axhal;
-use axaddrspace::{AxMmHal, HostPhysAddr, HostVirtAddr};
+use axaddrspace::{AxMmHal, HostPhysAddr, HostVirtAddr, GuestPhysAddr};
 use axvcpu::AxVCpuHal;
 use axvm::{AxVMHal, AxVMPerCpu};
 
@@ -271,5 +271,18 @@ mod host_api_impl {
     extern fn get_host_cpu_num() -> usize {
         // std::os::arceos::modules::axconfig::plat::CPU_NUM
         axruntime::cpu_count()
+    }
+}
+
+#[axvisor_api::api_mod_impl(axvisor_api::device)]
+mod device_api_impl {
+    use super::*;
+
+    extern fn translate_gpa(gpa: usize) -> Option<(usize, usize)> {
+        let vm_id = <AxVMHalImpl as AxVMHal>::current_vm_id();
+        crate::vmm::with_vm(vm_id, |vm| {
+            vm.translate_gpa(GuestPhysAddr::from(gpa))
+                .map(|(paddr, len)| (paddr.as_usize(), len))
+        }).flatten()
     }
 }
