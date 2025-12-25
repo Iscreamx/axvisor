@@ -91,43 +91,6 @@ pub fn crate_guest_fdt(
 
     // End all unclosed nodes
     while let Some(node) = node_stack.pop() {
-        if node_stack.is_empty() {
-            info!("Injecting emu_devices into Guest FDT root node...");
-            for emu_dev in &crate_config.devices.emu_devices {
-                let name = &emu_dev.name;
-                let base = emu_dev.base_gpa;
-                let size = emu_dev.length;
-                let irq = emu_dev.irq_id;
-
-                if name.contains("virtio") {
-                    let node_name = format!("virtio@{:x}", base);
-                    let virtio_node = fdt_writer.begin_node(&node_name).unwrap();
-
-                    // 1. compatible
-                    fdt_writer.property_string("compatible", "virtio,mmio").unwrap();
-
-                    // 2. reg = <base size>
-                    let mut reg_bytes = Vec::new();
-                    reg_bytes.extend_from_slice(&(base as u64).to_be_bytes());
-                    reg_bytes.extend_from_slice(&(size as u64).to_be_bytes());
-                    fdt_writer.property("reg", &reg_bytes).unwrap();
-
-                    // 3. interrupts
-                    let mut irq_bytes = Vec::new();
-                    irq_bytes.extend_from_slice(&0u32.to_be_bytes());      // SPI
-                    irq_bytes.extend_from_slice(&(irq as u32).to_be_bytes()); // IRQ Number
-                    irq_bytes.extend_from_slice(&4u32.to_be_bytes());      // Level High
-                    fdt_writer.property("interrupts", &irq_bytes).unwrap();
-
-                    // 4. dma-coherent
-                    fdt_writer.property("dma-coherent", &[]).unwrap();
-
-                    fdt_writer.end_node(virtio_node).unwrap();
-                    info!("  -> Injected FDT node: {}", node_name);
-                }
-            }
-        }
-
         previous_node_level -= 1;
         fdt_writer.end_node(node).unwrap();
     }
