@@ -5,6 +5,13 @@ use axvm::{
     config::{AxVMCrateConfig, CpuNumType, MemoryKind},
 };
 
+#[cfg(feature = "ebpf")]
+use axebpf::tracepoints::trace_config_load;
+#[cfg(feature = "ebpf")]
+use axebpf::trace_ops::AxKops;
+#[cfg(feature = "ebpf")]
+use axebpf::tracepoint::KernelTraceOps;
+
 pub fn get_guest_prelude_vmconfig() -> anyhow::Result<Vec<AxVMCrateConfig>> {
     let mut vm_configs = Vec::new();
     // First try to get configs from filesystem if fs feature is enabled
@@ -31,6 +38,9 @@ pub fn get_guest_prelude_vmconfig() -> anyhow::Result<Vec<AxVMCrateConfig>> {
 }
 
 pub fn build_vmconfig(cfg: AxVMCrateConfig) -> anyhow::Result<AxVMConfig> {
+    #[cfg(feature = "ebpf")]
+    let start = AxKops::time_now();
+
     let mut cpu_num = CpuNumType::Alloc(1);
     if let Some(num) = cfg.base.cpu_num {
         cpu_num = CpuNumType::Alloc(num);
@@ -61,14 +71,22 @@ pub fn build_vmconfig(cfg: AxVMCrateConfig) -> anyhow::Result<AxVMConfig> {
         memory_regions.push(mem_region);
     }
 
-    Ok(AxVMConfig {
+    let vm_config = AxVMConfig {
         id: cfg.base.id,
         name: cfg.base.name,
         cpu_num,
         image_config,
         memory_regions,
         interrupt_mode: cfg.devices.interrupt_mode,
-    })
+    };
+
+    #[cfg(feature = "ebpf")]
+    {
+        let duration = AxKops::time_now().saturating_sub(start);
+        trace_config_load(vm_config.id as u32, duration);
+    }
+
+    Ok(vm_config)
 }
 
 #[allow(clippy::module_inception, dead_code)]

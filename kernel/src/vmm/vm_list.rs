@@ -1,6 +1,9 @@
 use alloc::{collections::BTreeMap, sync::Arc, vec::Vec};
 use spin::Mutex;
 
+#[cfg(feature = "ebpf")]
+use axebpf::tracepoints::trace_vm_destroy;
+
 pub type VMRef = Arc<axvm::Vm>;
 
 /// Represents a list of VMs,
@@ -86,6 +89,11 @@ pub fn push_vm(vm: axvm::Vm) -> VMRef {
 /// * `Option<VMRef>` - The removed VM reference if it exists, or `None` if not.
 #[allow(unused)]
 pub fn remove_vm(vm_id: usize) -> Option<VMRef> {
+    #[cfg(feature = "ebpf")]
+    {
+        trace_vm_destroy(vm_id as u32);
+    }
+
     GLOBAL_VM_LIST.lock().remove_vm(vm_id)
 }
 
