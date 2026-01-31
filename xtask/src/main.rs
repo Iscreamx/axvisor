@@ -12,8 +12,10 @@ mod cargo;
 mod clippy;
 mod ctx;
 mod devspace;
+mod ebpf;
 mod image;
 mod menuconfig;
+mod symbols;
 mod tbuld;
 mod vmconfig;
 
@@ -44,10 +46,14 @@ enum Commands {
     Vmconfig,
     /// Interactive menu-based configuration editor
     Menuconfig,
+    /// Generate kernel symbol table
+    Symbols,
     /// Guest Image management
     Image(image::ImageArgs),
     /// Manage local devspace dependencies
     Devspace(DevspaceArgs),
+    /// Build eBPF programs for tracing
+    BuildEbpf,
 }
 
 #[derive(Parser)]
@@ -148,7 +154,22 @@ async fn main() -> Result<()> {
         Commands::Build(args) => {
             println!("Building the project...");
             ctx.apply_build_args(&args);
-            ctx.run_build().await?;
+            let config = ctx.run_build().await?;
+
+            // Generate symbols automatically after build
+            let kernel_path = PathBuf::from("target")
+                .join(&config.target)
+                .join("release")
+                .join("axvisor");
+
+            if kernel_path.exists() {
+                println!("Generating kernel symbols...");
+                let output_path = Path::new("kallsyms.bin");
+                if let Err(e) = symbols::generate_symbols(&kernel_path, output_path) {
+                    eprintln!("Warning: Failed to generate symbols: {}", e);
+                }
+            }
+
             println!("Build completed successfully.");
         }
         Commands::Clippy(args) => {
@@ -172,6 +193,22 @@ async fn main() -> Result<()> {
         Commands::Menuconfig => {
             ctx.run_menuconfig().await?;
         }
+        Commands::Symbols => {
+            // Default paths for now, can be parameterized later
+            let kernel_path = Path::new("target/aarch64-unknown-none-softfloat/release/axvisor");
+            let output_path = Path::new("kallsyms.bin");
+            if !kernel_path.exists() {
+                // Try x86_64 path if aarch64 doesn't exist
+                let kernel_path_x86 = Path::new("target/x86_64-unknown-none/release/axvisor");
+                if kernel_path_x86.exists() {
+                    symbols::generate_symbols(kernel_path_x86, output_path)?;
+                } else {
+                    anyhow::bail!("Kernel binary not found. Please build the project first.");
+                }
+            } else {
+                symbols::generate_symbols(kernel_path, output_path)?;
+            }
+        }
         Commands::Image(args) => {
             image::run_image(args).await?;
         }
@@ -179,6 +216,9 @@ async fn main() -> Result<()> {
             DevspaceCommand::Start => devspace::start()?,
             DevspaceCommand::Stop => devspace::stop()?,
         },
+        Commands::BuildEbpf => {
+            ebpf::build_ebpf()?;
+        }
     }
 
     Ok(())

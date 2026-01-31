@@ -88,10 +88,10 @@ impl Context {
         Ok(cargo)
     }
 
-    pub async fn run_build(&mut self) -> anyhow::Result<()> {
+    pub async fn run_build(&mut self) -> anyhow::Result<Cargo> {
         let config = self.load_config()?;
         self.ctx.cargo_build(&config).await?;
 
-        Ok(())
+        Ok(config)
     }
 }
