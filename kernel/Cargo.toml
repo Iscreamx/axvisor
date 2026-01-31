@@ -8,6 +8,7 @@ version.workspace = true
 [features]
 dyn-plat = ["axstd/myplat", "axstd/driver-dyn"]
 fs = ["axstd/fs"]
+ebpf = ["axebpf/tracepoint-support", "axebpf/runtime"]
 
 [dependencies]
 anyhow = {version = "1.0", default-features = false}
@@ -28,6 +29,7 @@ axstd.workspace = true
 axhvc.workspace = true
 axvm.workspace = true
 axvmconfig = { workspace = true }
+axebpf = { workspace = true }
 
 # System independent crates provided by ArceOS, these crates could be imported by remote url. 
 axerrno.workspace = true

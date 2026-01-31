@@ -15,6 +15,13 @@ use crate::vmm::{config::build_vmconfig, start_vm};
 use axvm::config::AxVMCrateConfig;
 use axvm::VMStatus;
 
+#[cfg(feature = "ebpf")]
+use axebpf::tracepoints::trace_vm_shutdown;
+#[cfg(feature = "ebpf")]
+use axebpf::trace_ops::AxKops;
+#[cfg(feature = "ebpf")]
+use axebpf::tracepoint::KernelTraceOps;
+
 use super::super::parser::{CommandNode, FlagDef, OptionDef, ParsedCommand};
 
 /// Format memory size in a human-readable way.
@@ -303,9 +310,18 @@ fn stop_vm_by_id(vm_id: usize) {
         }
     }
 
+    #[cfg(feature = "ebpf")]
+    let shutdown_start = AxKops::time_now();
+
     // Call shutdown
     match vm.shutdown() {
         Ok(_) => {
+            #[cfg(feature = "ebpf")]
+            {
+                let duration = AxKops::time_now().saturating_sub(shutdown_start);
+                trace_vm_shutdown(vm_id as u32, 0, duration); // reason=0: normal shutdown
+            }
+
             println!("✓ VM[{}] stop signal sent successfully", vm_id);
             println!("  Note: VM status will transition to Stopped");
         }
