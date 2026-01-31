@@ -70,3 +70,6 @@ MANIFEST
 # AI tools
 .spec-workflow/
 .claude/
+
+# eBPF programs build output
+ebpf-programs/target/
