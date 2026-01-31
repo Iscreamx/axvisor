@@ -4,6 +4,7 @@
 
 mod builtin;
 mod fs;
+mod trace;
 mod vm;
 
 use alloc::collections::BTreeMap;
@@ -17,10 +18,18 @@ use crate::std::io::Write;
 use axstd::print;
 use axstd::println;
 
+#[cfg(feature = "ebpf")]
+use axebpf::tracepoints::trace_shell_command;
+#[cfg(feature = "ebpf")]
+use axebpf::trace_ops::AxKops;
+#[cfg(feature = "ebpf")]
+use axebpf::tracepoint::KernelTraceOps;
+
 use super::parser::{CommandNode, CommandParser, ParseError};
 
 pub use builtin::register_builtin_commands;
 pub use fs::register_fs_commands;
+pub use trace::register_trace_commands;
 pub use vm::register_vm_commands;
 
 lazy_static::lazy_static! {
@@ -35,6 +44,7 @@ fn build_command_tree() -> BTreeMap<String, CommandNode> {
     register_builtin_commands(&mut tree);
     register_fs_commands(&mut tree);
     register_vm_commands(&mut tree);
+    register_trace_commands(&mut tree);
 
     tree
 }
@@ -203,6 +213,9 @@ pub fn print_prompt() {
 
 /// Execute a command from byte input
 pub fn run_cmd_bytes(cmd_bytes: &[u8]) {
+    #[cfg(feature = "ebpf")]
+    let start = AxKops::time_now();
+
     match str::from_utf8(cmd_bytes) {
         Ok(cmd_str) => {
             let trimmed = cmd_str.trim();
@@ -235,5 +248,11 @@ pub fn run_cmd_bytes(cmd_bytes: &[u8]) {
         Err(_) => {
             println!("Error: Input contains invalid UTF-8 characters");
         }
+    }
+
+    #[cfg(feature = "ebpf")]
+    {
+        let duration = AxKops::time_now().saturating_sub(start);
+        trace_shell_command(0, duration);
     }
 }
