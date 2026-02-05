@@ -13,6 +13,13 @@ SECTIONS
         _stext = .;
         *(.text.boot)
         *(.text .text.*)
+
+        /* Kprobe instruction slots - must be in .text for execution */
+        . = ALIGN(64);
+        __kprobe_insn_start = .;
+        KEEP(*(.text.kprobe_slots))
+        __kprobe_insn_end = .;
+
         . = ALIGN(4K);
         _etext = .;
     }

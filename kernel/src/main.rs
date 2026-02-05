@@ -30,9 +30,32 @@ fn main() {
     #[cfg(feature = "ebpf")]
     let init_start = axebpf::trace_ops::AxKops::time_now();
 
-    // Initialize eBPF tracepoint subsystem
+    // Initialize eBPF tracepoint subsystem with symbol table for kprobe support
     #[cfg(feature = "ebpf")]
-    axebpf::init();
+    {
+        // Embedded kallsyms binary data with page alignment for ksym library
+        // The ksym library requires the blob to be page-aligned in memory.
+        #[repr(C, align(4096))]
+        struct AlignedKallsyms<const N: usize> {
+            data: [u8; N],
+        }
+
+        const KALLSYMS_BYTES: &[u8] = include_bytes!("../../kallsyms.bin");
+        static KALLSYMS_ALIGNED: AlignedKallsyms<{ include_bytes!("../../kallsyms.bin").len() }> =
+            AlignedKallsyms {
+                data: *include_bytes!("../../kallsyms.bin"),
+            };
+
+        // Get kernel text section boundaries from linker symbols
+        unsafe extern "C" {
+            static _stext: u8;
+            static _etext: u8;
+        }
+        let stext = unsafe { &_stext as *const u8 as u64 };
+        let etext = unsafe { &_etext as *const u8 as u64 };
+
+        axebpf::init_with_symbols(&KALLSYMS_ALIGNED.data, stext, etext);
+    }
 
     info!("Starting virtualization...");
     // info!("Hardware support: {:?}", axvm::has_hardware_support());

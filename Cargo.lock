@@ -239,6 +239,7 @@ name = "arm_vcpu"
 version = "0.1.1"
 dependencies = [
  "aarch64-cpu 11.2.0",
+ "axebpf",
  "axerrno 0.1.2",
  "axvm-types",
  "log",
@@ -555,23 +556,7 @@ dependencies = [
  "axerrno 0.2.2",
  "axhal",
  "kbpf-basic",
- "ksym",
- "ktracepoint",
- "log",
- "rbpf",
- "spin 0.9.8",
- "static-keys",
- "tp-lexer",
-]
-
-[[package]]
-name = "axebpf"
-version = "0.1.0"
-source = "git+https://github.com/Iscreamx/axebpf.git#5f779250e79232d3684107b94f2a791c5e479905"
-dependencies = [
- "axerrno 0.2.2",
- "axhal",
- "kbpf-basic",
+ "kprobe",
  "ksym",
  "ktracepoint",
  "log",
@@ -1112,7 +1097,7 @@ version = "0.3.0"
 dependencies = [
  "anyhow",
  "axconfig",
- "axebpf 0.1.0 (git+https://github.com/Iscreamx/axebpf.git)",
+ "axebpf",
  "axerrno 0.2.2",
  "axhvc",
  "axstd",
@@ -3247,7 +3232,7 @@ dependencies = [
 [[package]]
 name = "kbpf-basic"
 version = "0.1.0"
-source = "git+https://github.com/Iscreamx/kbpf-basic.git#5527bff94e0b6c497ff16401ae9b4ea0a0bfcdba"
+source = "git+https://github.com/Starry-OS/kbpf-basic.git#e94c2ee2f3a26e3e0dc9463723348ae2d68750bb"
 dependencies = [
  "bitflags 2.10.0",
  "int-enum",
@@ -3277,6 +3262,18 @@ checksum = "d10c55bedf6789bc3748e0d8756ee639df1ae25144fd3525ed311044bd9a739f"
 dependencies = [
  "cfg-if",
  "crate_interface",
+]
+
+[[package]]
+name = "kprobe"
+version = "0.1.0"
+source = "git+https://github.com/Starry-OS/kprobe.git#985e06a8b66e78400dfa55d2faa3813619aa0dcf"
+dependencies = [
+ "cfg-if",
+ "lock_api",
+ "log",
+ "yaxpeax-arch",
+ "yaxpeax-x86",
 ]
 
 [[package]]
@@ -6849,6 +6846,26 @@ dependencies = [
  "tar",
  "tokio",
  "toml 0.9.10+spec-1.1.0",
+]
+
+[[package]]
+name = "yaxpeax-arch"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "36274fcc5403da2a7636ffda4d02eca12a1b2b8267b9d2e04447bd2ccfc72082"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
+name = "yaxpeax-x86"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9a9a30b7dd533c7b1a73eaf7c4ea162a7a632a2bb29b9fff47d8f2cc8513a883"
+dependencies = [
+ "cfg-if",
+ "num-traits",
+ "yaxpeax-arch",
 ]
 
 [[package]]

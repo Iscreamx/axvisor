@@ -73,7 +73,7 @@ axruntime = {path = "modules/axruntime"}
 axfs = {path = "modules/axfs"}
 axvcpu = "0.1"
 axvm = {path = "modules/axvm"}
-axebpf = { git = "https://github.com/Iscreamx/axebpf.git" }
+axebpf = { path = "modules/axebpf" }
 
 # System independent crates provided by ArceOS, these crates could be imported by remote url. 
 axerrno = "0.2"

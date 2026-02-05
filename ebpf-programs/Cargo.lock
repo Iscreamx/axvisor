@@ -339,8 +339,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "02aae0f83f69aafc94776e879363e9771d7ecbffe2c7fbb6c14c5e00dfe88439"
 
 [[patch.unused]]
-name = "arm_vcpu"
-version = "0.1.1"
+name = "axdevice"
+version = "0.1.0"
+
+[[patch.unused]]
+name = "arm_vgic"
+version = "0.1.0"
 
 [[patch.unused]]
 name = "axaddrspace"
@@ -363,17 +367,13 @@ name = "x86_vlapic"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "arm_vgic"
-version = "0.1.0"
+name = "axvcpu"
+version = "0.1.2"
 
 [[patch.unused]]
 name = "axvmconfig"
 version = "0.1.0"
 
 [[patch.unused]]
-name = "axvcpu"
-version = "0.1.2"
-
-[[patch.unused]]
-name = "axdevice"
-version = "0.1.0"
+name = "arm_vcpu"
+version = "0.1.1"
