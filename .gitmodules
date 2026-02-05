@@ -34,3 +34,6 @@
 [submodule "platform/axplat-aarch64-dyn"]
 	path = platform/axplat-aarch64-dyn
 	url = https://github.com/arceos-hypervisor/axplat-aarch64-dyn
+[submodule "modules/axebpf"]
+	path = modules/axebpf
+	url = https://github.com/Iscreamx/axebpf.git
