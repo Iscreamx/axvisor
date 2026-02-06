@@ -115,6 +115,9 @@ x86_vlapic = {path = "modules/x86_vlapic"}
 [patch."https://github.com/arceos-hypervisor/axdevice".axdevice]
 path = "modules/axdevice"
 
+[patch."https://github.com/arceos-hypervisor/arm_vcpu"]
+arm_vcpu = {path = "modules/arm_vcpu"}
+
 [patch."https://github.com/arceos-org/arceos"]
 # axalloc = {path = "modules/axalloc"}
 axconfig = {path = "modules/axconfig"}

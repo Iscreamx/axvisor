@@ -25,6 +25,9 @@ multitask = ["axtask/multitask"]
 net = ["axdriver", "axnet"]
 rtc = []
 
+# Kprobe support for EL2 trap handling
+kprobe = []
+
 [dependencies]
 axalloc = {workspace = true, optional = true}
 axconfig = {workspace = true}
