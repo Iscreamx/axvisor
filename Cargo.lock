@@ -395,6 +395,28 @@ dependencies = [
 [[package]]
 name = "axcpu"
 version = "0.3.0"
+dependencies = [
+ "aarch64-cpu 10.0.0",
+ "axbacktrace",
+ "cfg-if",
+ "lazyinit",
+ "linkme",
+ "log",
+ "loongArch64",
+ "memory_addr",
+ "page_table_entry",
+ "page_table_multiarch",
+ "percpu",
+ "riscv",
+ "static_assertions",
+ "tock-registers 0.9.0",
+ "x86",
+ "x86_64",
+]
+
+[[package]]
+name = "axcpu"
+version = "0.3.0"
 source = "git+https://github.com/arceos-org/axcpu.git?tag=dev-v03#72ef3859952b7340bae261c9a50c32705e602017"
 dependencies = [
  "aarch64-cpu 10.0.0",
@@ -650,7 +672,7 @@ source = "git+https://github.com/arceos-org/arceos.git?tag=dev-251216#16096568f5
 dependencies = [
  "axalloc 0.2.0 (git+https://github.com/arceos-org/arceos.git?tag=dev-251216)",
  "axconfig",
- "axcpu",
+ "axcpu 0.3.0 (git+https://github.com/arceos-org/axcpu.git?tag=dev-v03)",
  "axplat",
  "axplat-aarch64-qemu-virt",
  "axplat-loongarch64-qemu-virt",
@@ -791,7 +813,7 @@ dependencies = [
  "any-uart",
  "arm-gic-driver",
  "axconfig-macros",
- "axcpu",
+ "axcpu 0.3.0 (git+https://github.com/arceos-org/axcpu.git?tag=dev-v03)",
  "axplat",
  "fdt-parser",
  "heapless 0.9.2",
@@ -818,7 +840,7 @@ dependencies = [
  "arm-gic-driver",
  "arm_pl011",
  "arm_pl031",
- "axcpu",
+ "axcpu 0.3.0 (git+https://github.com/arceos-org/axcpu.git?tag=dev-v03)",
  "axplat",
  "int_ratio",
  "kspin",
@@ -834,7 +856,7 @@ version = "0.3.0"
 source = "git+https://github.com/arceos-org/axplat_crates.git?tag=dev-v03#0df0713b1c20eafaeebdc6b0e194b2985e857949"
 dependencies = [
  "axconfig-macros",
- "axcpu",
+ "axcpu 0.3.0 (git+https://github.com/arceos-org/axcpu.git?tag=dev-v03)",
  "axplat",
  "axplat-aarch64-peripherals",
  "log",
@@ -847,7 +869,7 @@ version = "0.3.0"
 source = "git+https://github.com/arceos-org/axplat_crates.git?tag=dev-v03#0df0713b1c20eafaeebdc6b0e194b2985e857949"
 dependencies = [
  "axconfig-macros",
- "axcpu",
+ "axcpu 0.3.0 (git+https://github.com/arceos-org/axcpu.git?tag=dev-v03)",
  "axplat",
  "kspin",
  "lazyinit",
@@ -873,7 +895,7 @@ version = "0.3.0"
 source = "git+https://github.com/arceos-org/axplat_crates.git?tag=dev-v03#0df0713b1c20eafaeebdc6b0e194b2985e857949"
 dependencies = [
  "axconfig-macros",
- "axcpu",
+ "axcpu 0.3.0 (git+https://github.com/arceos-org/axcpu.git?tag=dev-v03)",
  "axplat",
  "kspin",
  "lazyinit",
@@ -890,7 +912,7 @@ version = "0.3.0"
 source = "git+https://github.com/arceos-org/axplat_crates.git?tag=dev-v03#0df0713b1c20eafaeebdc6b0e194b2985e857949"
 dependencies = [
  "axconfig-macros",
- "axcpu",
+ "axcpu 0.3.0 (git+https://github.com/arceos-org/axcpu.git?tag=dev-v03)",
  "axplat",
  "bitflags 2.10.0",
  "heapless 0.9.2",
@@ -912,7 +934,7 @@ name = "axplat-x86-qemu-q35"
 version = "0.1.0"
 dependencies = [
  "axconfig-macros",
- "axcpu",
+ "axcpu 0.3.0 (git+https://github.com/arceos-org/axcpu.git?tag=dev-v03)",
  "axplat",
  "bitflags 2.10.0",
  "heapless 0.9.2",
