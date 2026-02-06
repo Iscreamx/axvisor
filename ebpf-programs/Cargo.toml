@@ -15,6 +15,18 @@ path = "src/stats.rs"
 name = "printk"
 path = "src/printk.rs"
 
+[[bin]]
+name = "kprobe_args"
+path = "src/kprobe_args.rs"
+
+[[bin]]
+name = "kprobe_simple"
+path = "src/kprobe_simple.rs"
+
+[[bin]]
+name = "kprobe_noop"
+path = "src/kprobe_noop.rs"
+
 [profile.release]
 panic = "abort"
 lto = true

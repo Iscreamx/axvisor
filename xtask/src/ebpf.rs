@@ -3,7 +3,7 @@ use std::path::Path;
 use std::process::Command;
 
 /// eBPF 程序名列表
-const EBPF_PROGRAMS: &[&str] = &["stats", "printk"];
+const EBPF_PROGRAMS: &[&str] = &["stats", "printk", "kprobe_args", "kprobe_simple", "kprobe_noop"];
 
 /// 编译单个 eBPF 程序
 fn build_program(name: &str, source_dir: &Path, output_dir: &Path) -> Result<()> {
