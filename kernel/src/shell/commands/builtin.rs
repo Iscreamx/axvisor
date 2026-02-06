@@ -1,12 +1,15 @@
 //! Built-in commands
 //!
-//! Commands that are part of the shell itself (help, exit, clear, log, uname).
+//! Commands that are part of the shell itself (help, exit, clear, log, uname, ksym).
 
 use std::println;
 
 use super::super::parser::ParsedCommand;
 use alloc::collections::BTreeMap;
 use alloc::string::{String, ToString};
+
+#[cfg(feature = "ebpf")]
+use axebpf::symbols;
 
 /// Handle the `uname` command - display system information
 pub fn do_uname(cmd: &ParsedCommand) {
@@ -84,6 +87,79 @@ pub fn do_log(cmd: &ParsedCommand) {
     println!("Log level set to: {:?}", log::max_level());
 }
 
+/// Handle the `ksym` command - kernel symbol lookup
+#[cfg(feature = "ebpf")]
+pub fn do_ksym(cmd: &ParsedCommand) {
+    if !symbols::is_initialized() {
+        println!("Error: Symbol table not initialized");
+        println!("Hint: Symbol table is loaded during boot if kallsyms is available");
+        return;
+    }
+
+    let args = &cmd.positional_args;
+
+    if args.is_empty() {
+        println!("Usage: ksym <subcommand>");
+        println!("  ksym lookup <name>     - Lookup symbol address by exact name");
+        println!("  ksym search <pattern>  - Search symbols containing pattern");
+        println!("  ksym addr <address>    - Lookup symbol by address (hex)");
+        return;
+    }
+
+    match args[0].as_str() {
+        "lookup" => {
+            if args.len() < 2 {
+                println!("Usage: ksym lookup <symbol_name>");
+                return;
+            }
+            let name = &args[1];
+            match symbols::lookup_addr(name) {
+                Some(addr) => println!("{} = 0x{:x}", name, addr),
+                None => println!("Symbol '{}' not found", name),
+            }
+        }
+        "search" => {
+            if args.len() < 2 {
+                println!("Usage: ksym search <pattern>");
+                return;
+            }
+            let pattern = &args[1];
+            let results = symbols::search_symbols(pattern, 50);
+            if results.is_empty() {
+                println!("No symbols found containing '{}'", pattern);
+            } else {
+                println!("Found {} symbol(s) matching '{}':", results.len(), pattern);
+                for (name, addr) in &results {
+                    println!("  0x{:016x}  {}", addr, name);
+                }
+                if results.len() == 50 {
+                    println!("  ... (limited to 50 results)");
+                }
+            }
+        }
+        "addr" => {
+            if args.len() < 2 {
+                println!("Usage: ksym addr <address>");
+                return;
+            }
+            let addr_str = args[1].trim_start_matches("0x");
+            match u64::from_str_radix(addr_str, 16) {
+                Ok(addr) => match symbols::lookup_symbol(addr) {
+                    Some((name, size, offset, ty)) => {
+                        println!("0x{:x} = {}+0x{:x} (size: {}, type: {})", addr, name, offset, size, ty);
+                    }
+                    None => println!("No symbol found at address 0x{:x}", addr),
+                },
+                Err(_) => println!("Invalid address format: {}", args[1]),
+            }
+        }
+        sub => {
+            println!("Unknown subcommand: {}", sub);
+            println!("Available: lookup, search, addr");
+        }
+    }
+}
+
 /// Register built-in commands to the command tree
 pub fn register_builtin_commands(tree: &mut BTreeMap<String, super::super::parser::CommandNode>) {
     use super::super::parser::{CommandNode, FlagDef};
@@ -125,5 +201,14 @@ pub fn register_builtin_commands(tree: &mut BTreeMap<String, super::super::parse
         CommandNode::new("Change log level")
             .with_handler(do_log)
             .with_usage("log [LEVEL]"),
+    );
+
+    // ksym Command (only available with ebpf feature)
+    #[cfg(feature = "ebpf")]
+    tree.insert(
+        "ksym".to_string(),
+        CommandNode::new("Kernel symbol lookup")
+            .with_handler(do_ksym)
+            .with_usage("ksym <subcommand> [args]"),
     );
 }
