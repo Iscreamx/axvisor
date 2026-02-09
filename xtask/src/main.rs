@@ -12,7 +12,6 @@ mod cargo;
 mod clippy;
 mod ctx;
 mod devspace;
-mod ebpf;
 mod image;
 mod menuconfig;
 mod symbols;
@@ -52,8 +51,6 @@ enum Commands {
     Image(image::ImageArgs),
     /// Manage local devspace dependencies
     Devspace(DevspaceArgs),
-    /// Build eBPF programs for tracing
-    BuildEbpf,
 }
 
 #[derive(Parser)]
@@ -216,9 +213,6 @@ async fn main() -> Result<()> {
             DevspaceCommand::Start => devspace::start()?,
             DevspaceCommand::Stop => devspace::stop()?,
         },
-        Commands::BuildEbpf => {
-            ebpf::build_ebpf()?;
-        }
     }
 
     Ok(())
