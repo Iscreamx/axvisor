@@ -27,9 +27,11 @@ fn trace_help(_cmd: &ParsedCommand) {
     println!("  load prog <id> <tp>               Attach loaded program to tracepoint");
     println!("  unload <tp>                       Detach program from tracepoint");
     println!("  progs                             List pre-compiled and loaded programs");
-    println!("  kprobe <symbol> <prog_id>         Attach kprobe to kernel function");
-    println!("  kretprobe <symbol> <prog_id>      Attach kretprobe to kernel function");
-    println!("  unkprobe <symbol>                 Detach kprobe from kernel function");
+    println!("  hprobe <symbol> <prog_id>         Attach hprobe to VMM function");
+    println!("  hretprobe <symbol> <prog_id>      Attach hretprobe to VMM function");
+    println!("  unhprobe <symbol>                 Detach hprobe from VMM function");
+    println!("  kprobe vm<id>:<addr> <prog>       Attach kprobe to guest kernel function");
+    println!("  unkprobe vm<id>:<addr>            Detach kprobe from guest kernel function");
     println!();
     println!("Pre-compiled programs:");
     println!("  stats    - Event counter with latency (COUNT/TOTAL/MIN/MAX)");
@@ -39,7 +41,7 @@ fn trace_help(_cmd: &ParsedCommand) {
     println!("  trace enable vmm:vcpu_run_enter");
     println!("  trace enable vmm:vcpu_run_exit --prog stats");
     println!("  trace enable shell:shell_command --prog printk");
-    println!("  trace kprobe axvm::Vm::create 0");
+    println!("  trace hprobe axvm::Vm::create 0");
     println!("  trace verbose on");
     println!("  trace progs");
     println!("  trace stat");
@@ -75,12 +77,12 @@ fn trace_list(_cmd: &ParsedCommand) {
     println!();
     println!("Total: {} tracepoints", mgr.count());
 
-    // Add kprobe listing
-    #[cfg(feature = "kprobe")]
+    // Add hprobe listing
+    #[cfg(feature = "hprobe")]
     {
         println!();
-        println!("Kprobes:");
-        let probes = axebpf::kprobe_manager::list_all();
+        println!("Hprobes (VMM probes):");
+        let probes = axebpf::hprobe_manager::list_all();
         if probes.is_empty() {
             println!("  (none)");
         } else {
@@ -92,6 +94,32 @@ fn trace_list(_cmd: &ParsedCommand) {
                 println!(
                     "  {:<20} {:#018x} {:>8} {:>8} {:>6} {:>6}",
                     name, addr, hits, prog_id, status, kind
+                );
+            }
+        }
+    }
+
+    // Add guest kprobe listing
+    #[cfg(feature = "guest-kprobe")]
+    {
+        println!();
+        println!("Guest Kprobes:");
+        let probes = axebpf::probe::kprobe::manager::list_all();
+        if probes.is_empty() {
+            println!("  (none)");
+        } else {
+            println!("  {:<6} {:<20} {:>8} {:>8} {:<10} {:<6} {:>6}",
+                     "VM", "ADDRESS", "HITS", "PROG_ID", "MODE", "RET", "ENABLED");
+            for (vm_id, gva, _sym, hits, enabled, is_ret, prog_id, mode) in probes {
+                let status = if enabled { "yes" } else { "no" };
+                let kind = if is_ret { "yes" } else { "no" };
+                let mode_str = match mode {
+                    axebpf::probe::kprobe::manager::KprobeMode::Stage2Fault => "s2fault",
+                    axebpf::probe::kprobe::manager::KprobeMode::BrkInject => "brk",
+                };
+                println!(
+                    "  vm{:<3} {:#018x} {:>8} {:>8} {:<10} {:<6} {:>6}",
+                    vm_id, gva, hits, prog_id, mode_str, kind, status
                 );
             }
         }
@@ -144,7 +172,7 @@ fn trace_enable(cmd: &ParsedCommand) {
         if let Some(prog) = prog_name {
             match ProgramRegistry::get(prog) {
                 Some(precompiled) => {
-                    match runtime::load_program(precompiled.bytecode) {
+                    match runtime::load_program(precompiled.bytecode, None) {
                         Ok(prog_id) => {
                             match attach::attach(tp_name, prog_id, prog) {
                                 Ok(()) => println!("Attached: {} program", prog),
@@ -412,7 +440,7 @@ fn trace_load_file(args: &[String]) {
         return;
     }
 
-    let prog_id = match runtime::load_program(&bytecode) {
+    let prog_id = match runtime::load_program(&bytecode, None) {
         Ok(id) => id,
         Err(e) => {
             println!("Failed to load program: {}", e);
@@ -548,24 +576,24 @@ fn trace_verbose(_cmd: &ParsedCommand) {
 }
 
 // ============================================================================
-// Kprobe Command Handlers
+// Hprobe Command Handlers (VMM self-introspection)
 // ============================================================================
 
-/// Handle `trace kprobe <symbol> <prog_name_or_id>` command
-#[cfg(feature = "kprobe")]
-fn trace_kprobe(cmd: &ParsedCommand) {
-    use axebpf::kprobe_manager;
+/// Handle `trace hprobe <symbol> <prog_name_or_id>` command
+#[cfg(feature = "hprobe")]
+fn trace_hprobe(cmd: &ParsedCommand) {
+    use axebpf::hprobe_manager;
     use axebpf::symbols;
     use axebpf::{runtime, ProgramRegistry};
 
-    // Initialize kprobe subsystem if needed
-    kprobe_manager::init();
+    // Initialize hprobe subsystem if needed
+    hprobe_manager::init();
 
     let args = &cmd.positional_args;
     if args.len() < 2 {
-        println!("Usage: trace kprobe <symbol> <prog_name_or_id>");
-        println!("Example: trace kprobe _RNv...symbol_name kprobe_args");
-        println!("         trace kprobe _RNv...symbol_name 0");
+        println!("Usage: trace hprobe <symbol> <prog_name_or_id>");
+        println!("Example: trace hprobe _RNv...symbol_name kprobe_args");
+        println!("         trace hprobe _RNv...symbol_name 0");
         return;
     }
 
@@ -579,7 +607,7 @@ fn trace_kprobe(cmd: &ParsedCommand) {
             // Treat as program name - load from precompiled
             match ProgramRegistry::get(prog_arg) {
                 Some(precompiled) => {
-                    match runtime::load_program(precompiled.bytecode) {
+                    match runtime::load_program(precompiled.bytecode, None) {
                         Ok(id) => {
                             println!("Loaded program '{}' with id {}", prog_arg, id);
                             id
@@ -602,14 +630,14 @@ fn trace_kprobe(cmd: &ParsedCommand) {
         }
     };
 
-    // Debug: check if symbol table is initialized
+    // Check if symbol table is initialized
     if !symbols::is_initialized() {
         println!("Error: Symbol table not initialized!");
         println!("This is a bug - symbol table should be loaded at boot.");
         return;
     }
 
-    // Debug: try to lookup the symbol first
+    // Try to lookup the symbol first
     match symbols::lookup_addr(symbol) {
         Some(addr) => {
             println!("Symbol '{}' found at {:#x}", symbol, addr);
@@ -621,9 +649,209 @@ fn trace_kprobe(cmd: &ParsedCommand) {
         }
     }
 
-    match kprobe_manager::attach(symbol, prog_id, false) {
+    match hprobe_manager::attach(symbol, prog_id, false) {
         Ok(addr) => {
-            println!("Kprobe attached: {} @ {:#x} -> prog {}", symbol, addr, prog_id);
+            println!("Hprobe attached: {} @ {:#x} -> prog {}", symbol, addr, prog_id);
+        }
+        Err(e) => {
+            println!("Failed to attach hprobe: {}", e);
+        }
+    }
+}
+
+#[cfg(not(feature = "hprobe"))]
+fn trace_hprobe(_cmd: &ParsedCommand) {
+    println!("Error: hprobe feature not enabled");
+    println!("Rebuild with --features hprobe to enable VMM probe support");
+}
+
+/// Handle `trace hretprobe <symbol> <prog_name_or_id>` command
+#[cfg(feature = "hprobe")]
+fn trace_hretprobe(cmd: &ParsedCommand) {
+    use axebpf::hprobe_manager;
+    use axebpf::symbols;
+    use axebpf::{runtime, ProgramRegistry};
+
+    hprobe_manager::init();
+
+    let args = &cmd.positional_args;
+    if args.len() < 2 {
+        println!("Usage: trace hretprobe <symbol> <prog_name_or_id>");
+        println!("Example: trace hretprobe _RNv...symbol_name stats");
+        println!("         trace hretprobe _RNv...symbol_name 0");
+        return;
+    }
+
+    let symbol = &args[0];
+    let prog_arg = &args[1];
+
+    // Try to parse as prog_id first, otherwise treat as program name
+    let prog_id: u32 = match prog_arg.parse() {
+        Ok(id) => id,
+        Err(_) => {
+            // Treat as program name - load from precompiled
+            match ProgramRegistry::get(prog_arg) {
+                Some(precompiled) => {
+                    match runtime::load_program(precompiled.bytecode, None) {
+                        Ok(id) => {
+                            println!("Loaded program '{}' with id {}", prog_arg, id);
+                            id
+                        }
+                        Err(e) => {
+                            println!("Failed to load program '{}': {}", prog_arg, e);
+                            return;
+                        }
+                    }
+                }
+                None => {
+                    println!("Unknown program: {}", prog_arg);
+                    println!("Available programs:");
+                    for prog in ProgramRegistry::list() {
+                        println!("  {}", prog.name);
+                    }
+                    return;
+                }
+            }
+        }
+    };
+
+    // Check if symbol table is initialized
+    if !symbols::is_initialized() {
+        println!("Error: Symbol table not initialized!");
+        println!("This is a bug - symbol table should be loaded at boot.");
+        return;
+    }
+
+    // Try to lookup the symbol first
+    match symbols::lookup_addr(symbol) {
+        Some(addr) => {
+            println!("Symbol '{}' found at {:#x}", symbol, addr);
+        }
+        None => {
+            println!("Symbol '{}' not found in symbol table", symbol);
+            println!("Hint: Use 'ksym search <pattern>' to find the mangled name");
+            return;
+        }
+    }
+
+    match hprobe_manager::attach(symbol, prog_id, true) {
+        Ok(addr) => {
+            println!("Hretprobe attached: {} @ {:#x} -> prog {}", symbol, addr, prog_id);
+        }
+        Err(e) => {
+            println!("Failed to attach hretprobe: {}", e);
+        }
+    }
+}
+
+#[cfg(not(feature = "hprobe"))]
+fn trace_hretprobe(_cmd: &ParsedCommand) {
+    println!("Error: hprobe feature not enabled");
+}
+
+/// Handle `trace unhprobe <symbol>` command
+#[cfg(feature = "hprobe")]
+fn trace_unhprobe(cmd: &ParsedCommand) {
+    use axebpf::hprobe_manager;
+
+    let args = &cmd.positional_args;
+    if args.is_empty() {
+        println!("Usage: trace unhprobe <symbol_name>");
+        return;
+    }
+
+    let symbol = &args[0];
+
+    match hprobe_manager::detach(symbol) {
+        Ok(()) => {
+            println!("Hprobe detached: {}", symbol);
+        }
+        Err(e) => {
+            println!("Failed to detach hprobe: {}", e);
+        }
+    }
+}
+
+#[cfg(not(feature = "hprobe"))]
+fn trace_unhprobe(_cmd: &ParsedCommand) {
+    println!("Error: hprobe feature not enabled");
+}
+
+// ============================================================================
+// Guest Kprobe Command Handlers
+// ============================================================================
+
+/// Handle `trace kprobe vm<id>:<addr> <prog_name_or_id>` command
+#[cfg(feature = "guest-kprobe")]
+fn trace_kprobe(cmd: &ParsedCommand) {
+    use axebpf::probe::kprobe::manager::{self as guest_kprobe, KprobeMode};
+    use axebpf::{runtime, ProgramRegistry};
+
+    guest_kprobe::init();
+
+    let args = &cmd.positional_args;
+    if args.len() < 2 {
+        println!("Usage: trace kprobe vm<id>:<addr|symbol> <prog_name_or_id>");
+        println!("Options: --inject (BRK injection mode), --ret (return probe)");
+        println!("Example: trace kprobe vm0:0xffff800080012340 kprobe_args");
+        return;
+    }
+
+    // Parse vm<id>:<addr> format
+    let target = &args[0];
+    let (vm_id, addr_str) = match parse_vm_target(target) {
+        Some(v) => v,
+        None => {
+            println!("Error: invalid target format. Use vm<id>:<addr>");
+            println!("Example: vm0:0xffff800080012340");
+            return;
+        }
+    };
+
+    // Parse address (hex with 0x prefix)
+    let gva: u64 = match u64::from_str_radix(addr_str.trim_start_matches("0x"), 16) {
+        Ok(a) => a,
+        Err(_) => {
+            println!("Error: invalid address '{}'", addr_str);
+            return;
+        }
+    };
+
+    // Parse program argument
+    let prog_arg = &args[1];
+    let prog_id: u32 = match prog_arg.parse() {
+        Ok(id) => id,
+        Err(_) => {
+            match ProgramRegistry::get(prog_arg) {
+                Some(precompiled) => {
+                    match runtime::load_program(precompiled.bytecode, None) {
+                        Ok(id) => {
+                            println!("Loaded program '{}' with id {}", prog_arg, id);
+                            id
+                        }
+                        Err(e) => {
+                            println!("Failed to load program '{}': {}", prog_arg, e);
+                            return;
+                        }
+                    }
+                }
+                None => {
+                    println!("Unknown program: {}", prog_arg);
+                    return;
+                }
+            }
+        }
+    };
+
+    let inject = cmd.flags.contains(&"inject".to_string());
+    let is_ret = cmd.flags.contains(&"ret".to_string());
+    let mode = if inject { KprobeMode::BrkInject } else { KprobeMode::Stage2Fault };
+
+    match guest_kprobe::attach(vm_id, gva, prog_id, is_ret, mode) {
+        Ok(()) => {
+            let mode_str = if inject { "brk-inject" } else { "s2fault" };
+            let kind = if is_ret { "kretprobe" } else { "kprobe" };
+            println!("{} attached: vm{}:{:#x} -> prog {} (mode={})", kind, vm_id, gva, prog_id, mode_str);
         }
         Err(e) => {
             println!("Failed to attach kprobe: {}", e);
@@ -631,75 +859,61 @@ fn trace_kprobe(cmd: &ParsedCommand) {
     }
 }
 
-#[cfg(not(feature = "kprobe"))]
+#[cfg(not(feature = "guest-kprobe"))]
 fn trace_kprobe(_cmd: &ParsedCommand) {
-    println!("Error: kprobe feature not enabled");
-    println!("Rebuild with --features kprobe to enable kprobe support");
+    println!("Error: guest-kprobe feature not enabled");
+    println!("Rebuild with --features guest-kprobe to enable guest kernel probing");
 }
 
-/// Handle `trace kretprobe <symbol> <prog_id>` command
-#[cfg(feature = "kprobe")]
-fn trace_kretprobe(cmd: &ParsedCommand) {
-    use axebpf::kprobe_manager;
-
-    kprobe_manager::init();
+/// Handle `trace unkprobe vm<id>:<addr>` command
+#[cfg(feature = "guest-kprobe")]
+fn trace_unkprobe(cmd: &ParsedCommand) {
+    use axebpf::probe::kprobe::manager as guest_kprobe;
 
     let args = &cmd.positional_args;
-    if args.len() < 2 {
-        println!("Usage: trace kretprobe <symbol> <prog_id>");
+    if args.is_empty() {
+        println!("Usage: trace unkprobe vm<id>:<addr>");
         return;
     }
 
-    let symbol = &args[0];
-    let prog_id: u32 = match args[1].parse() {
-        Ok(id) => id,
-        Err(_) => {
-            println!("Invalid prog_id: {}", args[1]);
+    let target = &args[0];
+    let (vm_id, addr_str) = match parse_vm_target(target) {
+        Some(v) => v,
+        None => {
+            println!("Error: invalid target format. Use vm<id>:<addr>");
             return;
         }
     };
 
-    match kprobe_manager::attach(symbol, prog_id, true) {
-        Ok(addr) => {
-            println!("Kretprobe attached: {} @ {:#x} -> prog {}", symbol, addr, prog_id);
+    let gva: u64 = match u64::from_str_radix(addr_str.trim_start_matches("0x"), 16) {
+        Ok(a) => a,
+        Err(_) => {
+            println!("Error: invalid address '{}'", addr_str);
+            return;
         }
-        Err(e) => {
-            println!("Failed to attach kretprobe: {}", e);
-        }
+    };
+
+    match guest_kprobe::detach(vm_id, gva) {
+        Ok(()) => println!("kprobe detached: vm{}:{:#x}", vm_id, gva),
+        Err(e) => println!("Failed to detach kprobe: {}", e),
     }
 }
 
-#[cfg(not(feature = "kprobe"))]
-fn trace_kretprobe(_cmd: &ParsedCommand) {
-    println!("Error: kprobe feature not enabled");
-}
-
-/// Handle `trace unkprobe <symbol>` command
-#[cfg(feature = "kprobe")]
-fn trace_unkprobe(cmd: &ParsedCommand) {
-    use axebpf::kprobe_manager;
-
-    let args = &cmd.positional_args;
-    if args.is_empty() {
-        println!("Usage: trace unkprobe <symbol_name>");
-        return;
-    }
-
-    let symbol = &args[0];
-
-    match kprobe_manager::detach(symbol) {
-        Ok(()) => {
-            println!("Kprobe detached: {}", symbol);
-        }
-        Err(e) => {
-            println!("Failed to detach kprobe: {}", e);
-        }
-    }
-}
-
-#[cfg(not(feature = "kprobe"))]
+#[cfg(not(feature = "guest-kprobe"))]
 fn trace_unkprobe(_cmd: &ParsedCommand) {
-    println!("Error: kprobe feature not enabled");
+    println!("Error: guest-kprobe feature not enabled");
+}
+
+/// Parse "vm<id>:<target>" format, returns (vm_id, target_str).
+fn parse_vm_target(input: &str) -> Option<(u32, &str)> {
+    let input = input.strip_prefix("vm")?;
+    let colon_pos = input.find(':')?;
+    let vm_id: u32 = input[..colon_pos].parse().ok()?;
+    let target = &input[colon_pos + 1..];
+    if target.is_empty() {
+        return None;
+    }
+    Some((vm_id, target))
 }
 
 // ============================================================================
@@ -761,15 +975,21 @@ pub fn register_trace_commands(tree: &mut BTreeMap<String, CommandNode>) {
         .add_subcommand("load", load_cmd)
         .add_subcommand("unload", unload_cmd)
         .add_subcommand("progs", progs_cmd)
-        .add_subcommand("kprobe", CommandNode::new("Attach kprobe to kernel function")
+        .add_subcommand("hprobe", CommandNode::new("Attach hprobe to VMM function")
+            .with_handler(trace_hprobe)
+            .with_usage("trace hprobe <SYMBOL> <PROG_NAME_OR_ID>"))
+        .add_subcommand("hretprobe", CommandNode::new("Attach hretprobe to VMM function")
+            .with_handler(trace_hretprobe)
+            .with_usage("trace hretprobe <SYMBOL> <PROG_ID>"))
+        .add_subcommand("unhprobe", CommandNode::new("Detach hprobe from VMM function")
+            .with_handler(trace_unhprobe)
+            .with_usage("trace unhprobe <SYMBOL>"))
+        .add_subcommand("kprobe", CommandNode::new("Attach kprobe to guest kernel function")
             .with_handler(trace_kprobe)
-            .with_usage("trace kprobe <SYMBOL> <PROG_ID>"))
-        .add_subcommand("kretprobe", CommandNode::new("Attach kretprobe to kernel function")
-            .with_handler(trace_kretprobe)
-            .with_usage("trace kretprobe <SYMBOL> <PROG_ID>"))
-        .add_subcommand("unkprobe", CommandNode::new("Detach kprobe from kernel function")
+            .with_usage("trace kprobe vm<ID>:<ADDR> <PROG> [--inject] [--ret]"))
+        .add_subcommand("unkprobe", CommandNode::new("Detach kprobe from guest kernel function")
             .with_handler(trace_unkprobe)
-            .with_usage("trace unkprobe <SYMBOL>"));
+            .with_usage("trace unkprobe vm<ID>:<ADDR>"));
 
     tree.insert("trace".to_string(), trace_node);
 }

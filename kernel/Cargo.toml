@@ -9,7 +9,8 @@ version.workspace = true
 dyn-plat = ["axstd/myplat", "axstd/driver-dyn"]
 fs = ["axstd/fs"]
 ebpf = ["axebpf/tracepoint-support", "axebpf/runtime"]
-kprobe = ["ebpf", "axebpf/kprobe", "axvm/kprobe"]
+hprobe = ["ebpf", "axebpf/hprobe", "axvm/hprobe"]
+guest-kprobe = ["hprobe", "axebpf/guest-kprobe"]
 
 [dependencies]
 anyhow = {version = "1.0", default-features = false}
