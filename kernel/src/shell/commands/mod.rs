@@ -20,10 +20,6 @@ use axstd::println;
 
 #[cfg(feature = "ebpf")]
 use axebpf::tracepoints::trace_shell_command;
-#[cfg(feature = "ebpf")]
-use axebpf::trace_ops::AxKops;
-#[cfg(feature = "ebpf")]
-use axebpf::tracepoint::KernelTraceOps;
 
 use super::parser::{CommandNode, CommandParser, ParseError};
 
@@ -213,9 +209,6 @@ pub fn print_prompt() {
 
 /// Execute a command from byte input
 pub fn run_cmd_bytes(cmd_bytes: &[u8]) {
-    #[cfg(feature = "ebpf")]
-    let start = AxKops::time_now();
-
     match str::from_utf8(cmd_bytes) {
         Ok(cmd_str) => {
             let trimmed = cmd_str.trim();
@@ -251,8 +244,5 @@ pub fn run_cmd_bytes(cmd_bytes: &[u8]) {
     }
 
     #[cfg(feature = "ebpf")]
-    {
-        let duration = AxKops::time_now().saturating_sub(start);
-        trace_shell_command(0, duration);
-    }
+    trace_shell_command(0, 0);
 }

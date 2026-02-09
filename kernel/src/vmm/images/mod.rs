@@ -8,17 +8,10 @@ use crate::config::config::MemoryImage;
 
 #[cfg(feature = "ebpf")]
 use axebpf::tracepoints::trace_image_load;
-#[cfg(feature = "ebpf")]
-use axebpf::trace_ops::AxKops;
-#[cfg(feature = "ebpf")]
-use axebpf::tracepoint::KernelTraceOps;
 
 mod linux;
 
 pub fn load_images(config: &AxVMCrateConfig) -> anyhow::Result<VMImagesConfig> {
-    #[cfg(feature = "ebpf")]
-    let start = AxKops::time_now();
-
     let result = match config.kernel.image_location {
         None | Some(ImageLocation::Fs) => {
             #[cfg(feature = "fs")]
@@ -35,12 +28,10 @@ pub fn load_images(config: &AxVMCrateConfig) -> anyhow::Result<VMImagesConfig> {
         Some(ImageLocation::Memory) => load_images_mem(config),
     };
 
-    // === TRACEPOINT: image_load ===
     #[cfg(feature = "ebpf")]
     if result.is_ok() {
-        let duration = AxKops::time_now().saturating_sub(start);
         let image_size = result.as_ref().map(|r| r.kernel.data.len() as u64).unwrap_or(0);
-        trace_image_load(config.base.id as u32, image_size, duration);
+        trace_image_load(config.base.id as u32, image_size, 0);
     }
 
     result

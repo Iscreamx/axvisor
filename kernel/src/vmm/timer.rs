@@ -4,20 +4,13 @@
 
 #[cfg(feature = "ebpf")]
 use axebpf::tracepoints::{trace_timer_tick, trace_timer_event};
-#[cfg(feature = "ebpf")]
-use axebpf::trace_ops::AxKops;
-#[cfg(feature = "ebpf")]
-use axebpf::tracepoint::KernelTraceOps;
 
 /// Check and process pending timer events.
 ///
 /// This function is called from the vCPU run loop when handling external interrupts.
 pub fn check_events() {
-    // === TRACEPOINT: timer_tick ===
     #[cfg(feature = "ebpf")]
-    {
-        trace_timer_tick(AxKops::time_now());
-    }
+    trace_timer_tick(0);
 
     // Process any pending timer events
     // Currently this is a placeholder - actual timer event processing
@@ -32,11 +25,8 @@ pub fn check_events() {
 /// * `vm_id` - The VM ID associated with this timer event
 #[allow(dead_code)]
 pub fn trigger_timer_event(event_type: u32, vm_id: u32) {
-    // === TRACEPOINT: timer_event ===
     #[cfg(feature = "ebpf")]
-    {
-        trace_timer_event(event_type, vm_id);
-    }
+    trace_timer_event(event_type, vm_id);
 
     // Actual timer event handling would go here
 }

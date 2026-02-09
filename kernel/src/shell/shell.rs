@@ -7,14 +7,10 @@ use std::io::prelude::*;
 use std::print;
 use std::println;
 
+use alloc::string::{String, ToString};
+
 #[cfg(feature = "ebpf")]
 use axebpf::tracepoints::trace_shell_init;
-#[cfg(feature = "ebpf")]
-use axebpf::trace_ops::AxKops;
-#[cfg(feature = "ebpf")]
-use axebpf::tracepoint::KernelTraceOps;
-
-use alloc::string::{String, ToString};
 
 use super::commands::{handle_builtin_commands, print_prompt, run_cmd_bytes};
 use super::completion;
@@ -70,9 +66,6 @@ impl Shell {
             return;
         }
 
-        #[cfg(feature = "ebpf")]
-        let start = AxKops::time_now();
-
         println!("Welcome to AxVisor Shell!");
         println!("Type 'help' to see available commands");
         println!("Use UP/DOWN arrows to navigate command history");
@@ -86,10 +79,7 @@ impl Shell {
         self.initialized = true;
 
         #[cfg(feature = "ebpf")]
-        {
-            let duration = AxKops::time_now().saturating_sub(start);
-            trace_shell_init(duration);
-        }
+        trace_shell_init(0);
     }
 
     /// Process one character of input.
