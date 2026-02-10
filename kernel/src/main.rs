@@ -20,6 +20,16 @@ mod vmm;
 pub use shell::*;
 pub use vmm::*;
 
+/// 512 KB reserved for kallsyms symbol table.
+/// `rust-objcopy --update-section` replaces this with actual data after build.
+#[cfg(feature = "ebpf")]
+const KALLSYMS_RESERVE_SIZE: usize = 512 * 1024;
+
+#[cfg(feature = "ebpf")]
+#[unsafe(link_section = ".kallsyms")]
+#[used]
+static KALLSYMS_PLACEHOLDER: [u8; KALLSYMS_RESERVE_SIZE] = [0u8; KALLSYMS_RESERVE_SIZE];
+
 #[unsafe(no_mangle)]
 fn main() {
     logo::print_logo();
@@ -27,28 +37,24 @@ fn main() {
     // Initialize eBPF tracepoint subsystem with symbol table for kprobe support
     #[cfg(feature = "ebpf")]
     {
-        // Embedded kallsyms binary data with page alignment for ksym library
-        // The ksym library requires the blob to be page-aligned in memory.
-        #[repr(C, align(4096))]
-        struct AlignedKallsyms<const N: usize> {
-            data: [u8; N],
-        }
-
-        const KALLSYMS_BYTES: &[u8] = include_bytes!("../../kallsyms.bin");
-        static KALLSYMS_ALIGNED: AlignedKallsyms<{ include_bytes!("../../kallsyms.bin").len() }> =
-            AlignedKallsyms {
-                data: *include_bytes!("../../kallsyms.bin"),
-            };
-
-        // Get kernel text section boundaries from linker symbols
+        // Linker-provided labels for the .kallsyms section injected by
+        // `rust-objcopy --update-section` after build (see xtask symbols).
         unsafe extern "C" {
+            static _kallsyms_start: u8;
+            static _kallsyms_end: u8;
             static _stext: u8;
             static _etext: u8;
         }
+
+        let kallsyms_data = unsafe {
+            let ptr = &_kallsyms_start as *const u8;
+            let len = (&_kallsyms_end as *const u8).offset_from(ptr) as usize;
+            core::slice::from_raw_parts(ptr, len)
+        };
         let stext = unsafe { &_stext as *const u8 as u64 };
         let etext = unsafe { &_etext as *const u8 as u64 };
 
-        axebpf::init_with_symbols(&KALLSYMS_ALIGNED.data, stext, etext);
+        axebpf::init_with_symbols(kallsyms_data, stext, etext);
     }
 
     info!("Starting virtualization...");

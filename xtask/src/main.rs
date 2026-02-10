@@ -45,8 +45,6 @@ enum Commands {
     Vmconfig,
     /// Interactive menu-based configuration editor
     Menuconfig,
-    /// Generate kernel symbol table
-    Symbols,
     /// Guest Image management
     Image(image::ImageArgs),
     /// Manage local devspace dependencies
@@ -153,17 +151,20 @@ async fn main() -> Result<()> {
             ctx.apply_build_args(&args);
             let config = ctx.run_build().await?;
 
-            // Generate symbols automatically after build
+            // Post-build: generate symbols and inject into .kallsyms section
             let kernel_path = PathBuf::from("target")
                 .join(&config.target)
                 .join("release")
                 .join("axvisor");
 
             if kernel_path.exists() {
+                let kallsyms_path = PathBuf::from("kallsyms.bin");
+
                 println!("Generating kernel symbols...");
-                let output_path = Path::new("kallsyms.bin");
-                if let Err(e) = symbols::generate_symbols(&kernel_path, output_path) {
+                if let Err(e) = symbols::generate_symbols(&kernel_path, &kallsyms_path) {
                     eprintln!("Warning: Failed to generate symbols: {}", e);
+                } else if let Err(e) = symbols::inject_kallsyms(&kernel_path, &kallsyms_path) {
+                    eprintln!("Warning: Failed to inject symbols: {}", e);
                 }
             }
 
@@ -189,22 +190,6 @@ async fn main() -> Result<()> {
         }
         Commands::Menuconfig => {
             ctx.run_menuconfig().await?;
-        }
-        Commands::Symbols => {
-            // Default paths for now, can be parameterized later
-            let kernel_path = Path::new("target/aarch64-unknown-none-softfloat/release/axvisor");
-            let output_path = Path::new("kallsyms.bin");
-            if !kernel_path.exists() {
-                // Try x86_64 path if aarch64 doesn't exist
-                let kernel_path_x86 = Path::new("target/x86_64-unknown-none/release/axvisor");
-                if kernel_path_x86.exists() {
-                    symbols::generate_symbols(kernel_path_x86, output_path)?;
-                } else {
-                    anyhow::bail!("Kernel binary not found. Please build the project first.");
-                }
-            } else {
-                symbols::generate_symbols(kernel_path, output_path)?;
-            }
         }
         Commands::Image(args) => {
             image::run_image(args).await?;
