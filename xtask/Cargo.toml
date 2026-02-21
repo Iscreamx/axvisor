@@ -23,5 +23,6 @@ axvmconfig = {workspace = true, features = ["std"]}
 tar = "0.4"
 flate2 = "1.0"
 ksym = { git = "https://github.com/Starry-OS/ksym.git" }
+object = { version = "0.36", default-features = false, features = ["read", "elf"] }
 rustc-demangle = "0.1"
 

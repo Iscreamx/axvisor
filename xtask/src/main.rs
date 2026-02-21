@@ -165,6 +165,23 @@ async fn main() -> Result<()> {
                     eprintln!("Warning: Failed to generate symbols: {}", e);
                 } else if let Err(e) = symbols::inject_kallsyms(&kernel_path, &kallsyms_path) {
                     eprintln!("Warning: Failed to inject symbols: {}", e);
+                } else if config.to_bin {
+                    // Regenerate flat binary after symbol injection.
+                    // The initial to_bin step runs before injection, so the .bin
+                    // would have an empty .kallsyms section without this step.
+                    let bin_path = kernel_path.with_extension("bin");
+                    println!("Regenerating flat binary with injected symbols...");
+                    let status = std::process::Command::new("rust-objcopy")
+                        .arg("--strip-all")
+                        .arg("-O")
+                        .arg("binary")
+                        .arg(&kernel_path)
+                        .arg(&bin_path)
+                        .status()
+                        .context("Failed to run rust-objcopy for binary regeneration")?;
+                    if !status.success() {
+                        eprintln!("Warning: Failed to regenerate flat binary after symbol injection");
+                    }
                 }
             }
 

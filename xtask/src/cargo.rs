@@ -34,6 +34,36 @@ impl Context {
             )?;
         }
 
+        // Build first, then inject symbols before running QEMU.
+        // cargo_run uses cargo run which invokes the ostool runner;
+        // the runner converts ELF→bin independently, so we only need
+        // to ensure the ELF has symbols before that happens.
+        self.ctx.cargo_build(&build_config).await?;
+
+        let kernel_path = PathBuf::from("target")
+            .join(&build_config.target)
+            .join("release")
+            .join("axvisor");
+
+        if kernel_path.exists() {
+            let kallsyms_path = PathBuf::from("kallsyms.bin");
+
+            // Always regenerate kallsyms for the current build to avoid stale
+            // symbol/address mismatches across incremental builds.
+            println!("Generating kernel symbols...");
+            match crate::symbols::generate_symbols(&kernel_path, &kallsyms_path) {
+                Ok(()) => {
+                    if let Err(e) = crate::symbols::inject_kallsyms(&kernel_path, &kallsyms_path) {
+                        eprintln!("Warning: Failed to inject symbols: {}", e);
+                    }
+                }
+                Err(e) => {
+                    eprintln!("Warning: Failed to generate symbols: {}", e);
+                    eprintln!("Warning: Skip kallsyms injection to avoid using stale symbol data");
+                }
+            }
+        }
+
         let kind = CargoRunnerKind::Qemu {
             qemu_config: Some(config_path),
             debug: false,

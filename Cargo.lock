@@ -553,6 +553,7 @@ dependencies = [
 name = "axebpf"
 version = "0.1.0"
 dependencies = [
+ "axalloc 0.2.0 (git+https://github.com/arceos-org/arceos.git?tag=dev-251216)",
  "axerrno 0.2.2",
  "axhal",
  "aya-obj",
@@ -3770,6 +3771,15 @@ checksum = "300e4bdb6b46b592948e700ea1ef24a4296491f6a0ee722b258040abd15a3714"
 
 [[package]]
 name = "object"
+version = "0.36.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62948e14d923ea95ea2c7c86c71013138b66525b86bdc08d2dcc262bdb497b87"
+dependencies = [
+ "memchr",
+]
+
+[[package]]
+name = "object"
 version = "0.37.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff76201f031d8863c38aa7f905eca4f53abbfa15f609db4277d44cd8938f33fe"
@@ -6860,6 +6870,7 @@ dependencies = [
  "flate2",
  "jkconfig",
  "ksym",
+ "object 0.36.7",
  "ostool",
  "reqwest 0.12.28",
  "rustc-demangle",
