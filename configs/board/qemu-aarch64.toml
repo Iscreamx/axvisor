@@ -2,6 +2,7 @@ cargo_args = []
 features = [
     "axstd/bus-mmio",
     "dyn-plat",
+    "guest-kprobe",
 ]
 log = "Info"
 target = "aarch64-unknown-none-softfloat"
