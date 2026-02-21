@@ -20,7 +20,9 @@ fn trace_help(_cmd: &ParsedCommand) {
     println!("  list                              List all available tracepoints");
     println!("  enable <tp> [--prog NAME]         Enable tracepoint, optionally attach program");
     println!("  disable <tp>                      Disable a tracepoint");
-    println!("  stat                              Show tracepoint statistics");
+    println!("  stat [--hist EVENT] [--top N]    Show probe statistics");
+    println!("  stream [--filter TYPE] [-n N]    Stream events in real-time");
+    println!("  dump [--filter TYPE] [-n N]      Dump buffered events");
     println!("  verbose [on|off]                  Control real-time eBPF output");
     println!("  reset                             Reset all statistics");
     println!("  load file <path> <tp>             Load eBPF program from file and attach");
@@ -233,95 +235,392 @@ fn trace_disable(_cmd: &ParsedCommand) {
 }
 
 #[cfg(feature = "ebpf")]
-fn trace_stat(_cmd: &ParsedCommand) {
-    use axebpf::{attach, maps, runtime};
+fn trace_stream(cmd: &ParsedCommand) {
+    use axebpf::event;
 
-    let attachments = attach::list_attachments();
+    let max_events = cmd
+        .options
+        .get("n")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+    let filter = cmd.options.get("filter").cloned();
 
-    if attachments.is_empty() {
-        println!("No programs attached. Statistics are collected by eBPF programs.");
-        println!("Use 'trace enable <tracepoint> --prog stats' to start collecting.");
-        return;
-    }
+    println!("Streaming events... (press Enter or q to stop)");
+    print_trace_header();
 
-    // Part 1: Attachment table
-    println!(
-        "{:<30} {:>8} {:<12} {:>8}",
-        "TRACEPOINT", "PROG_ID", "PROG_NAME", "STATUS"
-    );
-    println!(
-        "{:-<30} {:-<8} {:-<12} {:-<8}",
-        "", "", "", ""
-    );
+    let mut count = 0usize;
 
-    for (tp_name, info) in &attachments {
-        let status = if runtime::get_program(info.prog_id).is_some() {
-            "active"
+    'stream: while max_events == 0 || count < max_events {
+        if let Some(c) = try_read_char() {
+            if c == b'\r' || c == b'\n' || c == b'q' || c == b'Q' {
+                break 'stream;
+            }
+        }
+
+        let batch = if max_events > 0 {
+            core::cmp::min(32, max_events.saturating_sub(count))
         } else {
-            "invalid"
+            32
         };
-        println!(
-            "{:<30} {:>8} {:<12} {:>8}",
-            tp_name,
-            info.prog_id,
-            info.prog_name,
-            status,
-        );
-    }
 
-    println!();
+        let events = event::consume_events(batch);
+        if events.is_empty() {
+            core::hint::spin_loop();
+            continue;
+        }
 
-    // Part 2: Map data table
-    println!("MAP DATA:");
-    println!(
-        "{:<30} {:<16} {:>10} {:>12}",
-        "TRACEPOINT", "MAP_NAME", "KEY", "VALUE"
-    );
-    println!(
-        "{:-<30} {:-<16} {:-<10} {:-<12}",
-        "", "", "", ""
-    );
+        for ev in &events {
+            if !matches_filter(ev, &filter) {
+                continue;
+            }
+            print_trace_event(ev);
+            count += 1;
 
-    let mut total_entries = 0;
-
-    for (tp_name, info) in &attachments {
-        if let Some(map_fds) = runtime::get_program_map_fds(info.prog_id) {
-            for (map_name, map_fd) in map_fds {
-                let entries = maps::iter_entries(map_fd);
-                for (key, value) in &entries {
-                    let key_val = if key.len() >= 4 {
-                        u32::from_le_bytes(key[..4].try_into().unwrap_or([0; 4]))
-                    } else {
-                        0
-                    };
-
-                    let value_val = if value.len() >= 8 {
-                        u64::from_le_bytes(value[..8].try_into().unwrap_or([0; 8]))
-                    } else if value.len() >= 4 {
-                        u32::from_le_bytes(value[..4].try_into().unwrap_or([0; 4])) as u64
-                    } else {
-                        0
-                    };
-
-                    println!(
-                        "{:<30} {:<16} {:>10} {:>12}",
-                        tp_name,
-                        map_name,
-                        key_val,
-                        value_val,
-                    );
-                    total_entries += 1;
-                }
+            if max_events > 0 && count >= max_events {
+                break 'stream;
             }
         }
     }
 
-    if total_entries == 0 {
-        println!("  (no map entries yet)");
+    println!();
+    if max_events > 0 && count >= max_events {
+        println!("Reached limit of {} events.", max_events);
+    } else {
+        println!("Stream stopped. {} events displayed.", count);
+    }
+}
+
+#[cfg(feature = "ebpf")]
+fn try_read_char() -> Option<u8> {
+    use std::io::Read;
+
+    let mut buf = [0u8; 1];
+    match std::io::stdin().read(&mut buf) {
+        Ok(1) => Some(buf[0]),
+        _ => None,
+    }
+}
+
+#[cfg(not(feature = "ebpf"))]
+fn trace_stream(_cmd: &ParsedCommand) {
+    println!("Error: eBPF feature not enabled");
+}
+
+#[cfg(feature = "ebpf")]
+fn trace_dump(cmd: &ParsedCommand) {
+    use axebpf::event;
+
+    let max_events = cmd
+        .options
+        .get("n")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+    let filter = cmd.options.get("filter").cloned();
+
+    let events = event::consume_events(if max_events > 0 { max_events } else { 4096 });
+    if events.is_empty() {
+        println!("(no events)");
+        return;
+    }
+
+    print_trace_header();
+
+    let mut displayed = 0usize;
+    for ev in &events {
+        if !matches_filter(ev, &filter) {
+            continue;
+        }
+        print_trace_event(ev);
+        displayed += 1;
     }
 
     println!();
-    println!("Total: {} programs, {} map entries", attachments.len(), total_entries);
+    println!(
+        "{} events displayed ({} consumed from buffer).",
+        displayed,
+        events.len()
+    );
+}
+
+#[cfg(not(feature = "ebpf"))]
+fn trace_dump(_cmd: &ParsedCommand) {
+    println!("Error: eBPF feature not enabled");
+}
+
+#[cfg(feature = "ebpf")]
+fn print_trace_header() {
+    println!(
+        "{:<15} {:<5} {:<12} {:<30} {}",
+        "TIMESTAMP", "CPU", "TYPE", "EVENT", "DETAILS"
+    );
+    println!(
+        "{:-<15} {:-<5} {:-<12} {:-<30} {:-<30}",
+        "", "", "", "", ""
+    );
+}
+
+#[cfg(feature = "ebpf")]
+fn print_trace_event(ev: &axebpf::event::TraceEvent) {
+    use axebpf::event;
+
+    let secs = ev.timestamp_ns / 1_000_000_000;
+    let usecs = (ev.timestamp_ns % 1_000_000_000) / 1_000;
+    let event_name =
+        event::get_event_name(ev.name_offset).unwrap_or_else(|| alloc::format!("id:{}", ev.event_id));
+
+    let mut details = String::new();
+    if ev.nr_args > 0 {
+        details.push_str("args=[");
+        for i in 0..(ev.nr_args.min(4) as usize) {
+            if i > 0 {
+                details.push_str(", ");
+            }
+            details.push_str(&alloc::format!("{:#x}", ev.args[i]));
+        }
+        details.push(']');
+    }
+
+    if ev.duration_ns > 0 {
+        if !details.is_empty() {
+            details.push(' ');
+        }
+        details.push_str(&alloc::format!("dur={}", format_duration(ev.duration_ns)));
+    }
+
+    if ev.vm_id > 0 {
+        if !details.is_empty() {
+            details.push(' ');
+        }
+        details.push_str(&alloc::format!("vm{}", ev.vm_id));
+    }
+
+    println!(
+        "[{:>5}.{:06}] cpu{:<2} {:<12} {:<30} {}",
+        secs,
+        usecs,
+        ev.cpu_id,
+        ev.probe_type_str(),
+        event_name,
+        details
+    );
+}
+
+#[cfg(feature = "ebpf")]
+fn format_duration(ns: u64) -> String {
+    if ns < 1_000 {
+        return alloc::format!("{}ns", ns);
+    }
+    if ns < 1_000_000 {
+        let whole = ns / 1_000;
+        let frac = (ns % 1_000) / 100;
+        return alloc::format!("{}.{}us", whole, frac);
+    }
+    if ns < 1_000_000_000 {
+        let whole = ns / 1_000_000;
+        let frac = (ns % 1_000_000) / 100_000;
+        return alloc::format!("{}.{}ms", whole, frac);
+    }
+    let whole = ns / 1_000_000_000;
+    let frac = (ns % 1_000_000_000) / 10_000_000;
+    alloc::format!("{}.{}s", whole, frac)
+}
+
+#[cfg(feature = "ebpf")]
+fn matches_filter(ev: &axebpf::event::TraceEvent, filter: &Option<String>) -> bool {
+    let Some(filter) = filter else {
+        return true;
+    };
+
+    match filter.as_str() {
+        "hprobe" => {
+            ev.probe_type == axebpf::event::PROBE_HPROBE
+                || ev.probe_type == axebpf::event::PROBE_HRETPROBE
+        }
+        "kprobe" => {
+            ev.probe_type == axebpf::event::PROBE_KPROBE
+                || ev.probe_type == axebpf::event::PROBE_KRETPROBE
+        }
+        "tracepoint" => ev.probe_type == axebpf::event::PROBE_TRACEPOINT,
+        f if f.starts_with("vm") => {
+            if let Ok(vm_id) = f[2..].parse::<u16>() {
+                ev.vm_id == vm_id
+            } else {
+                true
+            }
+        }
+        _ => true,
+    }
+}
+#[cfg(feature = "ebpf")]
+fn trace_stat(cmd: &ParsedCommand) {
+    use axebpf::{attach, event, maps, runtime};
+
+    let hist_event = cmd.options.get("hist").cloned();
+    let top_n = cmd
+        .options
+        .get("top")
+        .and_then(|s| s.parse::<usize>().ok())
+        .unwrap_or(0);
+
+    let mut stats = event::all_stats();
+
+    if !stats.is_empty() {
+        if top_n > 0 {
+            stats.sort_by(|a, b| b.1.count.cmp(&a.1.count));
+            stats.truncate(top_n);
+            println!("TOP {} EVENTS (by count):", top_n);
+        } else {
+            println!("PROBE STATISTICS:");
+        }
+
+        println!(
+            "{:<30} {:>10} {:>10} {:>10} {:>10} {:>10}",
+            "EVENT", "COUNT", "MIN", "MAX", "AVG", "LAST_TS"
+        );
+        println!(
+            "{:-<30} {:-<10} {:-<10} {:-<10} {:-<10} {:-<10}",
+            "", "", "", "", "", ""
+        );
+
+        for (event_id, snap) in &stats {
+            let name = event::event_name_for_id(*event_id)
+                .unwrap_or_else(|| alloc::format!("id:{}", event_id));
+
+            let min_str = if snap.duration_samples == 0 {
+                "-".to_string()
+            } else {
+                format_duration(snap.duration_min)
+            };
+            let max_str = if snap.duration_samples == 0 {
+                "-".to_string()
+            } else {
+                format_duration(snap.duration_max)
+            };
+            let avg_str = if snap.duration_samples == 0 {
+                "-".to_string()
+            } else {
+                format_duration(snap.duration_avg)
+            };
+
+            println!(
+                "{:<30} {:>10} {:>10} {:>10} {:>10} {:>10}",
+                name, snap.count, min_str, max_str, avg_str, snap.last_ts,
+            );
+        }
+        println!();
+    }
+
+    if let Some(ref hist_name) = hist_event {
+        println!("LATENCY HISTOGRAM ({}):", hist_name);
+        for (event_id, snap) in &stats {
+            let name = event::event_name_for_id(*event_id)
+                .unwrap_or_else(|| alloc::format!("id:{}", event_id));
+            if !name.contains(hist_name) {
+                continue;
+            }
+            if snap.histogram.total == 0 {
+                println!("  {}: (no samples)", name);
+                continue;
+            }
+
+            let max_count = snap.histogram.buckets.iter().copied().max().unwrap_or(1);
+            println!("  {}", name);
+            for (idx, count) in snap.histogram.buckets.iter().enumerate() {
+                let bar_len = if max_count > 0 {
+                    ((*count as usize) * 40) / (max_count as usize)
+                } else {
+                    0
+                };
+                let bar: String = core::iter::repeat('|').take(bar_len).collect();
+                println!("    {} : {:>8}  {}", axebpf::tracepoints::BUCKET_LABELS[idx], count, bar);
+            }
+            println!(
+                "    P50={} P90={} P99={}",
+                format_duration(snap.histogram.p50_ns),
+                format_duration(snap.histogram.p90_ns),
+                format_duration(snap.histogram.p99_ns)
+            );
+            println!();
+        }
+    }
+
+    let attachments = attach::list_attachments();
+
+    #[cfg(feature = "hprobe")]
+    let hprobes = axebpf::hprobe_manager::list_all();
+    #[cfg(not(feature = "hprobe"))]
+    let hprobes: alloc::vec::Vec<(String, usize, u64, bool, bool, u32)> = alloc::vec::Vec::new();
+
+    if !attachments.is_empty() || !hprobes.is_empty() {
+        println!("EBPF ATTACHMENTS:");
+        if !attachments.is_empty() {
+            println!(
+                "  {:<30} {:>8} {:<12} {:>8}",
+                "TRACEPOINT", "PROG_ID", "PROG_NAME", "STATUS"
+            );
+            for (tp_name, info) in &attachments {
+                let status = if runtime::get_program(info.prog_id).is_some() {
+                    "active"
+                } else {
+                    "invalid"
+                };
+                println!(
+                    "  {:<30} {:>8} {:<12} {:>8}",
+                    tp_name, info.prog_id, info.prog_name, status
+                );
+            }
+        }
+        if !hprobes.is_empty() {
+            println!("  {:<30} {:>8} {:>10} {:>8}", "HPROBE", "PROG_ID", "HITS", "STATUS");
+            for (name, _addr, hits, enabled, _is_ret, prog_id) in &hprobes {
+                let status = if *enabled { "active" } else { "disabled" };
+                println!("  {:<30} {:>8} {:>10} {:>8}", name, prog_id, hits, status);
+            }
+        }
+
+        let mut total_entries = 0usize;
+        for (tp_name, info) in &attachments {
+            if let Some(map_fds) = runtime::get_program_map_fds(info.prog_id) {
+                for (map_name, map_fd) in map_fds {
+                    let entries = maps::iter_entries(map_fd);
+                    for (key, value) in &entries {
+                        if total_entries == 0 {
+                            println!();
+                            println!("  MAP DATA:");
+                            println!(
+                                "  {:<30} {:<16} {:>10} {:>12}",
+                                "SOURCE", "MAP_NAME", "KEY", "VALUE"
+                            );
+                        }
+                        let key_val = if key.len() >= 4 {
+                            u32::from_le_bytes(key[..4].try_into().unwrap_or([0; 4]))
+                        } else {
+                            0
+                        };
+                        let value_val = if value.len() >= 8 {
+                            u64::from_le_bytes(value[..8].try_into().unwrap_or([0; 8]))
+                        } else if value.len() >= 4 {
+                            u32::from_le_bytes(value[..4].try_into().unwrap_or([0; 4])) as u64
+                        } else {
+                            0
+                        };
+                        println!(
+                            "  {:<30} {:<16} {:>10} {:>12}",
+                            tp_name, map_name, key_val, value_val
+                        );
+                        total_entries += 1;
+                    }
+                }
+            }
+        }
+
+        println!();
+    }
+
+    if stats.is_empty() && attachments.is_empty() && hprobes.is_empty() {
+        println!("No active probes or attachments.");
+        println!("Use 'trace enable', 'trace hprobe', or 'trace kprobe' to start tracing.");
+    }
 }
 
 #[cfg(not(feature = "ebpf"))]
@@ -589,6 +888,9 @@ fn trace_hprobe(cmd: &ParsedCommand) {
     // Initialize hprobe subsystem if needed
     hprobe_manager::init();
 
+    // Install exception vector table with BRK handler support
+    axvm::install_trap_vector();
+
     let args = &cmd.positional_args;
     if args.len() < 2 {
         println!("Usage: trace hprobe <symbol> <prog_name_or_id>");
@@ -673,6 +975,9 @@ fn trace_hretprobe(cmd: &ParsedCommand) {
     use axebpf::{runtime, ProgramRegistry};
 
     hprobe_manager::init();
+
+    // Install exception vector table with BRK handler support
+    axvm::install_trap_vector();
 
     let args = &cmd.positional_args;
     if args.len() < 2 {
@@ -843,8 +1148,8 @@ fn trace_kprobe(cmd: &ParsedCommand) {
         }
     };
 
-    let inject = cmd.flags.contains(&"inject".to_string());
-    let is_ret = cmd.flags.contains(&"ret".to_string());
+    let inject = cmd.flags.contains_key(&"inject".to_string());
+    let is_ret = cmd.flags.contains_key(&"ret".to_string());
     let mode = if inject { KprobeMode::BrkInject } else { KprobeMode::Stage2Fault };
 
     match guest_kprobe::attach(vm_id, gva, prog_id, is_ret, mode) {
@@ -935,9 +1240,26 @@ pub fn register_trace_commands(tree: &mut BTreeMap<String, CommandNode>) {
         .with_handler(trace_disable)
         .with_usage("trace disable <TRACEPOINT>...");
 
+    let stream_cmd = CommandNode::new("Stream events in real-time")
+        .with_handler(trace_stream)
+        .with_usage("trace stream [--filter TYPE] [-n COUNT]")
+        .with_option(
+            OptionDef::new("filter", "Filter by type: hprobe, kprobe, tracepoint, vm<N>")
+                .with_long("filter"),
+        )
+        .with_option(OptionDef::new("n", "Stop after N events").with_short('n'));
+
+    let dump_cmd = CommandNode::new("Dump buffered events")
+        .with_handler(trace_dump)
+        .with_usage("trace dump [--filter TYPE] [-n COUNT]")
+        .with_option(OptionDef::new("filter", "Filter by type").with_long("filter"))
+        .with_option(OptionDef::new("n", "Max events to show").with_short('n'));
+
     let stat_cmd = CommandNode::new("Show tracepoint statistics")
         .with_handler(trace_stat)
-        .with_usage("trace stat");
+        .with_usage("trace stat [--hist EVENT] [--top N]")
+        .with_option(OptionDef::new("hist", "Show latency histogram for EVENT").with_long("hist"))
+        .with_option(OptionDef::new("top", "Show top N events by count").with_long("top"));
 
     let reset_cmd = CommandNode::new("Reset all statistics")
         .with_handler(trace_reset)
@@ -969,6 +1291,8 @@ pub fn register_trace_commands(tree: &mut BTreeMap<String, CommandNode>) {
         .add_subcommand("list", list_cmd)
         .add_subcommand("enable", enable_cmd)
         .add_subcommand("disable", disable_cmd)
+        .add_subcommand("stream", stream_cmd)
+        .add_subcommand("dump", dump_cmd)
         .add_subcommand("stat", stat_cmd)
         .add_subcommand("verbose", verbose_cmd)
         .add_subcommand("reset", reset_cmd)

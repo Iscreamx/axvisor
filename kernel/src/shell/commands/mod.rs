@@ -45,7 +45,9 @@ fn build_command_tree() -> BTreeMap<String, CommandNode> {
     tree
 }
 
-/// Execute a parsed command
+/// Execute a parsed command.
+/// Must not be inlined so hprobe (BRK patching) can intercept this function.
+#[inline(never)]
 pub fn execute_command(input: &str) -> Result<(), ParseError> {
     let parsed = CommandParser::parse(input, &*COMMAND_TREE)?;
 
@@ -168,7 +170,9 @@ pub fn show_available_commands() {
     println!("Tip: Use 'help <command>' to see detailed usage of a command");
 }
 
-/// Handle built-in shell commands (help, exit, clear)
+/// Handle built-in shell commands (help, exit, clear).
+/// Must not be inlined so hprobe (BRK patching) can intercept this function.
+#[inline(never)]
 pub fn handle_builtin_commands(input: &str) -> bool {
     match input.trim() {
         "help" => {
@@ -207,7 +211,9 @@ pub fn print_prompt() {
     axstd::io::stdout().flush().unwrap();
 }
 
-/// Execute a command from byte input
+/// Execute a command from byte input.
+/// Must not be inlined so hprobe (BRK patching) can intercept this function.
+#[inline(never)]
 pub fn run_cmd_bytes(cmd_bytes: &[u8]) {
     match str::from_utf8(cmd_bytes) {
         Ok(cmd_str) => {
