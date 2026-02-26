@@ -7,7 +7,7 @@ use alloc::string::{String, ToString};
 
 use axstd::println;
 
-use super::super::parser::{CommandNode, OptionDef, ParsedCommand};
+use super::super::parser::{CommandNode, FlagDef, OptionDef, ParsedCommand};
 
 // ============================================================================
 // Command Handlers
@@ -1089,6 +1089,7 @@ fn trace_unhprobe(_cmd: &ParsedCommand) {
 /// Handle `trace kprobe vm<id>:<addr> <prog_name_or_id>` command
 #[cfg(feature = "guest-kprobe")]
 fn trace_kprobe(cmd: &ParsedCommand) {
+    use axebpf::probe::kprobe::addr_translate;
     use axebpf::probe::kprobe::manager::{self as guest_kprobe, KprobeMode};
     use axebpf::{runtime, ProgramRegistry};
 
@@ -1152,11 +1153,32 @@ fn trace_kprobe(cmd: &ParsedCommand) {
     let is_ret = cmd.flags.contains_key(&"ret".to_string());
     let mode = if inject { KprobeMode::BrkInject } else { KprobeMode::Stage2Fault };
 
+    const TTBR1_READY_WAIT_MAX: usize = 8_388_608;
+    if inject {
+        let mut ready = false;
+        for _ in 0..TTBR1_READY_WAIT_MAX {
+            if addr_translate::vm_ttbr1_el1(vm_id).is_ok() {
+                ready = true;
+                break;
+            }
+            std::thread::yield_now();
+        }
+
+        if !ready {
+            println!("Failed to attach kprobe: VM TTBR1_EL1 is not ready");
+            println!("Hint: keep VM running a bit longer and retry.");
+            return;
+        }
+    }
+
     match guest_kprobe::attach(vm_id, gva, prog_id, is_ret, mode) {
         Ok(()) => {
             let mode_str = if inject { "brk-inject" } else { "s2fault" };
             let kind = if is_ret { "kretprobe" } else { "kprobe" };
-            println!("{} attached: vm{}:{:#x} -> prog {} (mode={})", kind, vm_id, gva, prog_id, mode_str);
+            println!(
+                "{} attached: vm{}:{:#x} -> prog {} (mode={})",
+                kind, vm_id, gva, prog_id, mode_str
+            );
         }
         Err(e) => {
             println!("Failed to attach kprobe: {}", e);
@@ -1310,7 +1332,9 @@ pub fn register_trace_commands(tree: &mut BTreeMap<String, CommandNode>) {
             .with_usage("trace unhprobe <SYMBOL>"))
         .add_subcommand("kprobe", CommandNode::new("Attach kprobe to guest kernel function")
             .with_handler(trace_kprobe)
-            .with_usage("trace kprobe vm<ID>:<ADDR> <PROG> [--inject] [--ret]"))
+            .with_usage("trace kprobe vm<ID>:<ADDR> <PROG> [--inject] [--ret]")
+            .with_flag(FlagDef::new("inject", "Use BRK injection mode instead of Stage-2 fault").with_long("inject"))
+            .with_flag(FlagDef::new("ret", "Attach as return probe").with_long("ret")))
         .add_subcommand("unkprobe", CommandNode::new("Detach kprobe from guest kernel function")
             .with_handler(trace_unkprobe)
             .with_usage("trace unkprobe vm<ID>:<ADDR>"));
