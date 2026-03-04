@@ -32,8 +32,10 @@ fn trace_help(_cmd: &ParsedCommand) {
     println!("  hprobe <symbol> <prog_id>         Attach hprobe to VMM function");
     println!("  hretprobe <symbol> <prog_id>      Attach hretprobe to VMM function");
     println!("  unhprobe <symbol>                 Detach hprobe from VMM function");
-    println!("  kprobe vm<id>:<addr> <prog>       Attach kprobe to guest kernel function");
-    println!("  unkprobe vm<id>:<addr>            Detach kprobe from guest kernel function");
+    println!("  kprobe vm<id>:<addr|symbol> <prog> Attach kprobe to guest kernel function");
+    println!("  unkprobe vm<id>:<addr|symbol>     Detach kprobe from guest kernel function");
+    println!("  loadsyms vm<id> <path>            Load guest symbol file (nm/System.map)");
+    println!("  gsym vm<id> <name|addr>           Query guest symbol by name/address");
     println!();
     println!("Pre-compiled programs:");
     println!("  stats    - Event counter with latency (COUNT/TOTAL/MIN/MAX)");
@@ -1108,19 +1110,15 @@ fn trace_kprobe(cmd: &ParsedCommand) {
     let (vm_id, addr_str) = match parse_vm_target(target) {
         Some(v) => v,
         None => {
-            println!("Error: invalid target format. Use vm<id>:<addr>");
+            println!("Error: invalid target format. Use vm<id>:<addr|symbol>");
             println!("Example: vm0:0xffff800080012340");
             return;
         }
     };
 
-    // Parse address (hex with 0x prefix)
-    let gva: u64 = match u64::from_str_radix(addr_str.trim_start_matches("0x"), 16) {
-        Ok(a) => a,
-        Err(_) => {
-            println!("Error: invalid address '{}'", addr_str);
-            return;
-        }
+    let (gva, resolved_by_symbol) = match resolve_guest_gva(vm_id, addr_str) {
+        Some(v) => v,
+        None => return,
     };
 
     // Parse program argument
@@ -1173,6 +1171,9 @@ fn trace_kprobe(cmd: &ParsedCommand) {
 
     match guest_kprobe::attach(vm_id, gva, prog_id, is_ret, mode) {
         Ok(()) => {
+            if resolved_by_symbol {
+                let _ = guest_kprobe::set_symbol(vm_id, gva, Some(addr_str));
+            }
             let mode_str = if inject { "brk-inject" } else { "s2fault" };
             let kind = if is_ret { "kretprobe" } else { "kprobe" };
             println!(
@@ -1207,17 +1208,14 @@ fn trace_unkprobe(cmd: &ParsedCommand) {
     let (vm_id, addr_str) = match parse_vm_target(target) {
         Some(v) => v,
         None => {
-            println!("Error: invalid target format. Use vm<id>:<addr>");
+            println!("Error: invalid target format. Use vm<id>:<addr|symbol>");
             return;
         }
     };
 
-    let gva: u64 = match u64::from_str_radix(addr_str.trim_start_matches("0x"), 16) {
-        Ok(a) => a,
-        Err(_) => {
-            println!("Error: invalid address '{}'", addr_str);
-            return;
-        }
+    let (gva, _) = match resolve_guest_gva(vm_id, addr_str) {
+        Some(v) => v,
+        None => return,
     };
 
     match guest_kprobe::detach(vm_id, gva) {
@@ -1229,6 +1227,212 @@ fn trace_unkprobe(cmd: &ParsedCommand) {
 #[cfg(not(feature = "guest-kprobe"))]
 fn trace_unkprobe(_cmd: &ParsedCommand) {
     println!("Error: guest-kprobe feature not enabled");
+}
+
+/// Handle `trace loadsyms vm<id> <path>` command.
+#[cfg(all(feature = "guest-kprobe", feature = "fs"))]
+fn trace_loadsyms(cmd: &ParsedCommand) {
+    use axstd::fs::File;
+    use axstd::io::Read;
+
+    let args = &cmd.positional_args;
+    if args.len() < 2 {
+        println!("Usage: trace loadsyms vm<ID> <PATH>");
+        println!("  Load an nm/System.map symbol file for a guest VM.");
+        println!("Example: trace loadsyms vm0 /arceos.syms");
+        return;
+    }
+
+    let vm_str = &args[0];
+    let vm_id = match parse_vm_id(vm_str) {
+        Some(id) => id,
+        None => {
+            println!("Error: invalid VM ID '{}'. Use vm<N> format.", vm_str);
+            return;
+        }
+    };
+
+    let path = &args[1];
+    let mut file = match File::open(path) {
+        Ok(f) => f,
+        Err(e) => {
+            println!("Error: failed to open '{}': {}", path, e);
+            return;
+        }
+    };
+
+    let mut content = String::new();
+    if let Err(e) = file.read_to_string(&mut content) {
+        println!("Error: failed to read '{}': {}", path, e);
+        return;
+    }
+
+    match axebpf::guest_symbols::load_from_text(vm_id, &content) {
+        Ok(count) => println!("Loaded {} symbols for vm{} from '{}'", count, vm_id, path),
+        Err(e) => println!("Error: failed to parse symbols: {}", e),
+    }
+}
+
+#[cfg(all(feature = "guest-kprobe", not(feature = "fs")))]
+fn trace_loadsyms(_cmd: &ParsedCommand) {
+    println!("Error: file system feature not enabled");
+    println!("Rebuild with --features fs to load symbols from files");
+}
+
+#[cfg(not(feature = "guest-kprobe"))]
+fn trace_loadsyms(_cmd: &ParsedCommand) {
+    println!("Error: guest-kprobe feature not enabled");
+}
+
+/// Handle `trace gsym vm<id> <name|addr|search pattern>` command.
+#[cfg(feature = "guest-kprobe")]
+fn trace_gsym(cmd: &ParsedCommand) {
+    let args = &cmd.positional_args;
+    if args.len() < 2 {
+        println!("Usage: trace gsym vm<ID> <NAME|ADDR>");
+        println!("       trace gsym vm<ID> search <PATTERN>");
+        println!("Example: trace gsym vm0 main");
+        println!("         trace gsym vm0 0xffff800080001000");
+        return;
+    }
+
+    let vm_str = &args[0];
+    let vm_id = match parse_vm_id(vm_str) {
+        Some(id) => id,
+        None => {
+            println!("Error: invalid VM ID '{}'. Use vm<N> format.", vm_str);
+            return;
+        }
+    };
+
+    if !axebpf::guest_symbols::is_loaded(vm_id) {
+        println!("No symbols loaded for vm{}.", vm_id);
+        println!("Hint: use 'trace loadsyms vm{} <path>' first.", vm_id);
+        return;
+    }
+
+    if args[1] == "search" {
+        if args.len() < 3 {
+            println!("Usage: trace gsym vm<ID> search <PATTERN>");
+            return;
+        }
+
+        let pattern = &args[2];
+        let results = axebpf::guest_symbols::search(vm_id, pattern, 20);
+        if results.is_empty() {
+            println!("No symbols matching '{}' in vm{}", pattern, vm_id);
+        } else {
+            println!("{} result(s) for '{}' in vm{}:", results.len(), pattern, vm_id);
+            for (addr, name, ty) in &results {
+                println!("  {:#018x} {} {}", addr, ty, name);
+            }
+        }
+        return;
+    }
+
+    let query = &args[1];
+    if query.starts_with("0x") || query.starts_with("0X") {
+        let Some(addr) = parse_hex_u64(query) else {
+            println!("Error: invalid hex address '{}'", query);
+            return;
+        };
+        match axebpf::guest_symbols::lookup_name(vm_id, addr) {
+            Some((name, ty, offset)) if offset == 0 => {
+                println!("{:#018x} {} {}", addr, ty, name);
+            }
+            Some((name, ty, offset)) => {
+                println!("{:#018x} {} {}+{:#x}", addr, ty, name, offset);
+            }
+            None => println!("No symbol found at {:#x} in vm{}", addr, vm_id),
+        }
+        return;
+    }
+
+    if let Some(addr) = axebpf::guest_symbols::lookup_addr(vm_id, query) {
+        println!("{} = {:#018x}", query, addr);
+        return;
+    }
+
+    if let Some(addr) = parse_hex_u64(query) {
+        match axebpf::guest_symbols::lookup_name(vm_id, addr) {
+            Some((name, ty, offset)) if offset == 0 => {
+                println!("{:#018x} {} {}", addr, ty, name);
+            }
+            Some((name, ty, offset)) => {
+                println!("{:#018x} {} {}+{:#x}", addr, ty, name, offset);
+            }
+            None => println!("No symbol found at {:#x} in vm{}", addr, vm_id),
+        }
+        return;
+    }
+
+    println!("Symbol '{}' not found in vm{}", query, vm_id);
+    let results = axebpf::guest_symbols::search(vm_id, query, 5);
+    if !results.is_empty() {
+        println!("Did you mean:");
+        for (addr, name, ty) in &results {
+            println!("  {:#018x} {} {}", addr, ty, name);
+        }
+    }
+}
+
+#[cfg(not(feature = "guest-kprobe"))]
+fn trace_gsym(_cmd: &ParsedCommand) {
+    println!("Error: guest-kprobe feature not enabled");
+}
+
+#[cfg(feature = "guest-kprobe")]
+fn parse_vm_id(input: &str) -> Option<u32> {
+    let vm_str = input.strip_prefix("vm")?;
+    vm_str.parse().ok()
+}
+
+#[cfg(feature = "guest-kprobe")]
+fn parse_hex_u64(input: &str) -> Option<u64> {
+    let hex = input
+        .strip_prefix("0x")
+        .or_else(|| input.strip_prefix("0X"))
+        .unwrap_or(input);
+    if hex.is_empty() {
+        return None;
+    }
+    u64::from_str_radix(hex, 16).ok()
+}
+
+#[cfg(feature = "guest-kprobe")]
+fn resolve_guest_gva(vm_id: u32, target: &str) -> Option<(u64, bool)> {
+    if target.starts_with("0x") || target.starts_with("0X") {
+        return match parse_hex_u64(target) {
+            Some(addr) => Some((addr, false)),
+            None => {
+                println!("Error: invalid hex address '{}'", target);
+                None
+            }
+        };
+    }
+
+    if let Some(addr) = axebpf::guest_symbols::lookup_addr(vm_id, target) {
+        println!("Resolved '{}' -> {:#x}", target, addr);
+        return Some((addr, true));
+    }
+
+    if let Some(addr) = parse_hex_u64(target) {
+        return Some((addr, false));
+    }
+
+    println!("Error: symbol '{}' not found in vm{}", target, vm_id);
+    if !axebpf::guest_symbols::is_loaded(vm_id) {
+        println!("Hint: load symbols first with 'trace loadsyms vm{} <path>'", vm_id);
+    } else {
+        let results = axebpf::guest_symbols::search(vm_id, target, 5);
+        if !results.is_empty() {
+            println!("Did you mean:");
+            for (addr, name, _) in &results {
+                println!("  {} ({:#x})", name, addr);
+            }
+        }
+    }
+    None
 }
 
 /// Parse "vm<id>:<target>" format, returns (vm_id, target_str).
@@ -1330,14 +1534,20 @@ pub fn register_trace_commands(tree: &mut BTreeMap<String, CommandNode>) {
         .add_subcommand("unhprobe", CommandNode::new("Detach hprobe from VMM function")
             .with_handler(trace_unhprobe)
             .with_usage("trace unhprobe <SYMBOL>"))
+        .add_subcommand("loadsyms", CommandNode::new("Load guest symbol file")
+            .with_handler(trace_loadsyms)
+            .with_usage("trace loadsyms vm<ID> <PATH>"))
+        .add_subcommand("gsym", CommandNode::new("Look up guest symbol")
+            .with_handler(trace_gsym)
+            .with_usage("trace gsym vm<ID> <NAME|ADDR|search PATTERN>"))
         .add_subcommand("kprobe", CommandNode::new("Attach kprobe to guest kernel function")
             .with_handler(trace_kprobe)
-            .with_usage("trace kprobe vm<ID>:<ADDR> <PROG> [--inject] [--ret]")
+            .with_usage("trace kprobe vm<ID>:<ADDR|SYMBOL> <PROG> [--inject] [--ret]")
             .with_flag(FlagDef::new("inject", "Use BRK injection mode instead of Stage-2 fault").with_long("inject"))
             .with_flag(FlagDef::new("ret", "Attach as return probe").with_long("ret")))
         .add_subcommand("unkprobe", CommandNode::new("Detach kprobe from guest kernel function")
             .with_handler(trace_unkprobe)
-            .with_usage("trace unkprobe vm<ID>:<ADDR>"));
+            .with_usage("trace unkprobe vm<ID>:<ADDR|SYMBOL>"));
 
     tree.insert("trace".to_string(), trace_node);
 }

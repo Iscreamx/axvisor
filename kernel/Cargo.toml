@@ -8,7 +8,7 @@ version.workspace = true
 [features]
 dyn-plat = ["axstd/myplat", "axstd/driver-dyn"]
 fs = ["axstd/fs"]
-ebpf = ["axebpf/tracepoint-support", "axebpf/runtime"]
+ebpf = ["axebpf/tracepoint-support", "axebpf/runtime", "axebpf/axhal"]
 hprobe = ["ebpf", "axebpf/hprobe", "axvm/hprobe"]
 guest-kprobe = ["ebpf", "axebpf/guest-kprobe", "axvm/guest-kprobe"]
 
