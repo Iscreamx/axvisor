@@ -92,6 +92,9 @@ pub fn remove_vm(vm_id: usize) -> Option<VMRef> {
     #[cfg(feature = "ebpf")]
     trace_vm_destroy(vm_id as u32);
 
+    #[cfg(feature = "guest-kprobe")]
+    axebpf::cleanup_vm(vm_id as u32);
+
     GLOBAL_VM_LIST.lock().remove_vm(vm_id)
 }
 
