@@ -112,18 +112,22 @@ fn trace_list(_cmd: &ParsedCommand) {
         if probes.is_empty() {
             println!("  (none)");
         } else {
-            println!("  {:<6} {:<20} {:>8} {:>8} {:<10} {:<6} {:>6}",
-                     "VM", "ADDRESS", "HITS", "PROG_ID", "MODE", "RET", "ENABLED");
-            for (vm_id, gva, _sym, hits, enabled, is_ret, prog_id, mode) in probes {
+            println!("  {:<6} {:<30} {:>8} {:>8} {:<10} {:<6} {:>6}",
+                     "VM", "TARGET", "HITS", "PROG_ID", "MODE", "RET", "ENABLED");
+            for (vm_id, gva, sym, hits, enabled, is_ret, prog_id, mode) in probes {
                 let status = if enabled { "yes" } else { "no" };
                 let kind = if is_ret { "yes" } else { "no" };
                 let mode_str = match mode {
                     axebpf::probe::kprobe::manager::KprobeMode::Stage2Fault => "s2fault",
                     axebpf::probe::kprobe::manager::KprobeMode::BrkInject => "brk",
                 };
+                let target = match sym {
+                    Some(name) => alloc::format!("{}+0x0", name),
+                    None => alloc::format!("{:#018x}", gva),
+                };
                 println!(
-                    "  vm{:<3} {:#018x} {:>8} {:>8} {:<10} {:<6} {:>6}",
-                    vm_id, gva, hits, prog_id, mode_str, kind, status
+                    "  vm{:<3} {:<30} {:>8} {:>8} {:<10} {:<6} {:>6}",
+                    vm_id, target, hits, prog_id, mode_str, kind, status
                 );
             }
         }
@@ -1173,6 +1177,10 @@ fn trace_kprobe(cmd: &ParsedCommand) {
         Ok(()) => {
             if resolved_by_symbol {
                 let _ = guest_kprobe::set_symbol(vm_id, gva, Some(addr_str));
+            } else if let Some((name, _ty, offset)) = axebpf::guest_symbols::lookup_name(vm_id, gva) {
+                if offset == 0 {
+                    let _ = guest_kprobe::set_symbol(vm_id, gva, Some(&name));
+                }
             }
             let mode_str = if inject { "brk-inject" } else { "s2fault" };
             let kind = if is_ret { "kretprobe" } else { "kprobe" };
