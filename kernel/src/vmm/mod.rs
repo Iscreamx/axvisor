@@ -6,6 +6,9 @@ pub mod images;
 pub mod timer;
 pub mod vm_list;
 
+#[cfg(all(feature = "guest-kprobe", target_arch = "aarch64"))]
+use memory_addr::MemoryAddr;
+
 use axvm::{AxVMConfig, VmId};
 
 #[cfg(all(feature = "guest-kprobe", target_arch = "aarch64"))]
@@ -13,12 +16,15 @@ fn register_guest_kprobe_hooks() {
     use axebpf::probe::kprobe::addr_translate::{
         register_gpa_to_hpa_hook, register_guest_pt_read_hook, register_vm_ttbr1_hook,
     };
-    use axebpf::probe::kprobe::manager::register_stage2_exec_hook;
+    use axebpf::probe::kprobe::manager::{
+        register_stage2_exec_hook, register_stage2_exec_region_hook,
+    };
 
     register_guest_pt_read_hook(read_guest_pte_for_vm);
     register_vm_ttbr1_hook(read_vm_ttbr1_el1);
     register_gpa_to_hpa_hook(translate_gpa_to_hpa_for_vm);
     register_stage2_exec_hook(update_stage2_exec_for_vm);
+    register_stage2_exec_region_hook(query_stage2_exec_region_for_vm);
     info!("guest_kprobe: VMM address translation hooks registered");
 }
 
@@ -82,7 +88,33 @@ fn update_stage2_exec_for_vm(vm_id: u32, gpa: u64, executable: bool) -> axerrno:
                 vm_id, gpa, executable, e
             );
             axerrno::AxError::BadState
-        })
+        })?;
+    axvm::invalidate_stage2_tlb_by_vmid(vm_id);
+    log::trace!(
+        "guest_kprobe: Stage-2 TLBI vm{} gpa={:#x} executable={}",
+        vm_id,
+        gpa,
+        executable
+    );
+    Ok(())
+}
+
+#[cfg(all(feature = "guest-kprobe", target_arch = "aarch64"))]
+fn query_stage2_exec_region_for_vm(vm_id: u32, gpa: u64) -> axerrno::AxResult<(u64, u64)> {
+    let vm = find_vm(vm_id)?;
+    let gpa = usize::try_from(gpa)
+        .map_err(|_| axerrno::ax_err_type!(InvalidInput, "GPA out of range"))?;
+    let (_, _, page_size) = vm
+        .query_gpa_mapping(axvm::GuestPhysAddr::from_usize(gpa))
+        .map_err(|e| {
+            warn!(
+                "guest_kprobe: Stage-2 exec region query failed vm{} gpa={:#x}: {}",
+                vm_id, gpa, e
+            );
+            axerrno::AxError::BadState
+        })?;
+    let base = gpa.align_down(page_size) as u64;
+    Ok((base, page_size as u64))
 }
 
 /// Initialize the VMM.
