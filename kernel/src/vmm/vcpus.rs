@@ -548,6 +548,8 @@ fn vcpu_run() {
             }
         }
 
+        super::notify_guest_vmexit(vm_id as u32);
+
         // Check if the VM is suspended
         if vm.suspending() {
             debug!(

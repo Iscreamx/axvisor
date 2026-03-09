@@ -25,12 +25,11 @@ fn register_guest_kprobe_hooks() {
     register_gpa_to_hpa_hook(translate_gpa_to_hpa_for_vm);
     register_stage2_exec_hook(update_stage2_exec_for_vm);
     register_stage2_exec_region_hook(query_stage2_exec_region_for_vm);
-    axvm::register_post_vmexit_hook(on_guest_vmexit);
     info!("guest_kprobe: VMM address translation hooks registered");
 }
 
 #[cfg(all(feature = "guest-kprobe", target_arch = "aarch64"))]
-fn on_guest_vmexit(vm_id: u32) {
+pub(crate) fn notify_guest_vmexit(vm_id: u32) {
     let enabled = axebpf::probe::kprobe::manager::try_enable_registered_for_vm(vm_id);
     if enabled > 0 {
         info!(
@@ -40,6 +39,9 @@ fn on_guest_vmexit(vm_id: u32) {
         );
     }
 }
+
+#[cfg(not(all(feature = "guest-kprobe", target_arch = "aarch64")))]
+pub(crate) fn notify_guest_vmexit(_vm_id: u32) {}
 
 #[cfg(all(feature = "guest-kprobe", target_arch = "aarch64"))]
 fn find_vm(vm_id: u32) -> axerrno::AxResult<vm_list::VMRef> {
@@ -102,7 +104,7 @@ fn update_stage2_exec_for_vm(vm_id: u32, gpa: u64, executable: bool) -> axerrno:
             );
             axerrno::AxError::BadState
         })?;
-    axvm::invalidate_stage2_tlb_by_vmid(vm_id);
+    flush_stage2_tlb();
     log::trace!(
         "guest_kprobe: Stage-2 TLBI vm{} gpa={:#x} executable={}",
         vm_id,
@@ -128,6 +130,19 @@ fn query_stage2_exec_region_for_vm(vm_id: u32, gpa: u64) -> axerrno::AxResult<(u
         })?;
     let base = gpa.align_down(page_size) as u64;
     Ok((base, page_size as u64))
+}
+
+#[cfg(all(feature = "guest-kprobe", target_arch = "aarch64"))]
+fn flush_stage2_tlb() {
+    unsafe {
+        core::arch::asm!(
+            "dsb ishst",
+            "tlbi alle2is",
+            "dsb ish",
+            "isb",
+            options(nostack, preserves_flags)
+        );
+    }
 }
 
 /// Initialize the VMM.
