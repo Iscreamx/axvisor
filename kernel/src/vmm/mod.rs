@@ -25,7 +25,20 @@ fn register_guest_kprobe_hooks() {
     register_gpa_to_hpa_hook(translate_gpa_to_hpa_for_vm);
     register_stage2_exec_hook(update_stage2_exec_for_vm);
     register_stage2_exec_region_hook(query_stage2_exec_region_for_vm);
+    axvm::register_post_vmexit_hook(on_guest_vmexit);
     info!("guest_kprobe: VMM address translation hooks registered");
+}
+
+#[cfg(all(feature = "guest-kprobe", target_arch = "aarch64"))]
+fn on_guest_vmexit(vm_id: u32) {
+    let enabled = axebpf::probe::kprobe::manager::try_enable_registered_for_vm(vm_id);
+    if enabled > 0 {
+        info!(
+            "guest_kprobe: auto-enabled {} deferred probe(s) for vm{} after VM-exit",
+            enabled,
+            vm_id
+        );
+    }
 }
 
 #[cfg(all(feature = "guest-kprobe", target_arch = "aarch64"))]
