@@ -23,6 +23,7 @@ mod shell;
 mod commands;
 
 // Re-export shell types and functions
+pub(crate) use shell::bind_current_thread_to_non_boot_cpus;
 pub use shell::{Shell, console_init, console_init_non_blocking};
 
 // Re-export parser types for external use

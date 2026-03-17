@@ -70,5 +70,6 @@ fn main() {
     info!("[OK] Default guest initialized");
     vmm::wait_for_all_vms_exit();
     info!("All guest VMs exited.");
+    shell::bind_current_thread_to_non_boot_cpus();
     shell::console_init();
 }

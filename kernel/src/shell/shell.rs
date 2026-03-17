@@ -4,6 +4,7 @@
 //! command execution, and state management.
 
 use std::io::prelude::*;
+use std::os::arceos::{api::task::AxCpuMask, modules::axtask::set_current_affinity};
 use std::print;
 use std::println;
 
@@ -378,6 +379,39 @@ impl Default for Shell {
     }
 }
 
+fn shell_cpu_mask_bits(cpu_count: usize) -> usize {
+    if cpu_count <= 1 {
+        return 0b1;
+    }
+
+    let all_cpus = if cpu_count >= usize::BITS as usize {
+        usize::MAX
+    } else {
+        (1usize << cpu_count) - 1
+    };
+
+    all_cpus & !0b1usize
+}
+
+pub(crate) fn bind_current_thread_to_non_boot_cpus() {
+    let cpu_count = axvm::vhal::cpu_count();
+    let mask_bits = shell_cpu_mask_bits(cpu_count);
+
+    if mask_bits == 0b1 {
+        info!("shell stays on CPU0 because only {cpu_count} host CPU(s) are available");
+        return;
+    }
+
+    if !set_current_affinity(AxCpuMask::from_raw_bits(mask_bits)) {
+        warn!("failed to move shell thread away from CPU0, requested mask {mask_bits:#x}");
+        return;
+    }
+
+    // Yield once so the scheduler can migrate the shell thread off CPU0 promptly.
+    std::thread::yield_now();
+    info!("shell thread affinity limited to non-boot host CPUs: {mask_bits:#x}");
+}
+
 /// Initialize the console shell with blocking behavior (backward compatible).
 pub fn console_init() {
     let mut shell = Shell::new();
@@ -388,4 +422,28 @@ pub fn console_init() {
 /// This allows the caller to control when to process input.
 pub fn console_init_non_blocking() -> Shell {
     Shell::new()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::shell_cpu_mask_bits;
+
+    #[test]
+    fn shell_mask_keeps_boot_cpu_on_single_cpu_hosts() {
+        assert_eq!(shell_cpu_mask_bits(0), 0b1);
+        assert_eq!(shell_cpu_mask_bits(1), 0b1);
+    }
+
+    #[test]
+    fn shell_mask_moves_to_non_boot_cpus_when_available() {
+        assert_eq!(shell_cpu_mask_bits(2), 0b10);
+        assert_eq!(shell_cpu_mask_bits(4), 0b1110);
+    }
+
+    #[test]
+    fn shell_mask_saturates_at_word_size() {
+        let expected = usize::MAX & !0b1usize;
+        assert_eq!(shell_cpu_mask_bits(usize::BITS as usize), expected);
+        assert_eq!(shell_cpu_mask_bits(usize::BITS as usize + 3), expected);
+    }
 }
