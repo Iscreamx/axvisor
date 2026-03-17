@@ -13,6 +13,7 @@ use axvm::{AxVMConfig, VmId};
 
 #[cfg(all(feature = "guest-kprobe", target_arch = "aarch64"))]
 fn register_guest_kprobe_hooks() {
+    axvm::register_vmexit_handler(notify_guest_vmexit);
     use axebpf::probe::kprobe::addr_translate::{
         register_gpa_to_hpa_hook, register_guest_pt_read_hook, register_vm_ttbr1_hook,
     };
