@@ -257,9 +257,11 @@ fn trace_stream(cmd: &ParsedCommand) {
     let mut count = 0usize;
 
     'stream: while max_events == 0 || count < max_events {
-        if let Some(c) = try_read_char() {
-            if c == b'\r' || c == b'\n' || c == b'q' || c == b'Q' {
-                break 'stream;
+        if max_events == 0 {
+            if let Some(c) = try_read_char() {
+                if c == b'\r' || c == b'\n' || c == b'q' || c == b'Q' {
+                    break 'stream;
+                }
             }
         }
 
