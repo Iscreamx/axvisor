@@ -69,6 +69,7 @@ pub fn build_vmconfig(cfg: AxVMCrateConfig) -> anyhow::Result<AxVMConfig> {
         name: cfg.base.name,
         cpu_num,
         image_config,
+        cmdline: cfg.kernel.cmdline,
         memory_regions,
         interrupt_mode: cfg.devices.interrupt_mode,
     };
