@@ -11,6 +11,7 @@ fs = ["axstd/fs"]
 ebpf = ["axebpf/tracepoint-support", "axebpf/runtime", "axebpf/axhal"]
 hprobe = ["ebpf", "axebpf/hprobe", "axvm/hprobe"]
 guest-kprobe = ["ebpf", "axebpf/guest-kprobe", "axvm/guest-kprobe"]
+guest-uprobe = ["guest-kprobe", "axebpf/guest-uprobe", "axvm/guest-uprobe"]
 
 [dependencies]
 anyhow = {version = "1.0", default-features = false}

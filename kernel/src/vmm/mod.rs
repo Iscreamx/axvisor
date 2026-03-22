@@ -14,15 +14,31 @@ use axvm::{AxVMConfig, VmId};
 #[cfg(all(feature = "guest-kprobe", target_arch = "aarch64"))]
 fn register_guest_kprobe_hooks() {
     axvm::register_vmexit_handler(notify_guest_vmexit);
+    axebpf::probe::kprobe::manager::init();
     use axebpf::probe::kprobe::addr_translate::{
         register_gpa_to_hpa_hook, register_guest_pt_read_hook, register_vm_ttbr1_hook,
     };
     use axebpf::probe::kprobe::manager::{
         register_stage2_exec_hook, register_stage2_exec_region_hook,
     };
+    #[cfg(feature = "guest-uprobe")]
+    use axebpf::probe::uprobe::addr_translate::{
+        register_gpa_to_hpa_hook as register_uprobe_gpa_to_hpa_hook,
+        register_guest_pt_read_hook as register_uprobe_guest_pt_read_hook,
+        register_vm_ttbr0_hook,
+    };
+    #[cfg(feature = "guest-uprobe")]
+    use axebpf::probe::uprobe::linux_runtime_observer::register_vm_contextidr_hook;
 
     register_guest_pt_read_hook(read_guest_pte_for_vm);
     register_vm_ttbr1_hook(read_vm_ttbr1_el1);
+    #[cfg(feature = "guest-uprobe")]
+    {
+        register_uprobe_guest_pt_read_hook(read_guest_pte_for_vm);
+        register_vm_ttbr0_hook(read_vm_ttbr0_el1);
+        register_vm_contextidr_hook(read_vm_contextidr_el1);
+        register_uprobe_gpa_to_hpa_hook(translate_gpa_to_hpa_for_vm);
+    }
     register_gpa_to_hpa_hook(translate_gpa_to_hpa_for_vm);
     register_stage2_exec_hook(update_stage2_exec_for_vm);
     register_stage2_exec_region_hook(query_stage2_exec_region_for_vm);
@@ -31,6 +47,7 @@ fn register_guest_kprobe_hooks() {
 
 #[cfg(all(feature = "guest-kprobe", target_arch = "aarch64"))]
 pub(crate) fn notify_guest_vmexit(vm_id: u32) {
+    axebpf::probe::kprobe::manager::init();
     let enabled = axebpf::probe::kprobe::manager::try_enable_registered_for_vm(vm_id);
     if enabled > 0 {
         info!(
@@ -38,6 +55,24 @@ pub(crate) fn notify_guest_vmexit(vm_id: u32) {
             enabled,
             vm_id
         );
+    }
+    #[cfg(feature = "guest-uprobe")]
+    match axebpf::probe::uprobe::linux_runtime_observer::ensure_registered_for_vm(vm_id) {
+        Ok(registered) if registered > 0 => {
+            info!(
+                "guest_uprobe_observer: registered {} hidden runtime observer probe(s) for vm{}",
+                registered,
+                vm_id
+            );
+        }
+        Ok(_) => {}
+        Err(err) => {
+            warn!(
+                "guest_uprobe_observer: failed to register hidden runtime observers for vm{}: {}",
+                vm_id,
+                err
+            );
+        }
     }
 }
 
@@ -90,6 +125,26 @@ fn read_vm_ttbr1_el1(vm_id: u32) -> axerrno::AxResult<u64> {
         return Err(axerrno::AxError::BadState);
     }
     Ok(ttbr1)
+}
+
+#[cfg(all(feature = "guest-uprobe", target_arch = "aarch64"))]
+fn read_vm_ttbr0_el1(vm_id: u32) -> axerrno::AxResult<u64> {
+    let vm = find_vm(vm_id)?;
+    let ttbr0 = vm.guest_ttbr0_el1();
+    if ttbr0 == 0 {
+        return Err(axerrno::AxError::BadState);
+    }
+    Ok(ttbr0)
+}
+
+#[cfg(all(feature = "guest-uprobe", target_arch = "aarch64"))]
+fn read_vm_contextidr_el1(vm_id: u32) -> axerrno::AxResult<u32> {
+    let vm = find_vm(vm_id)?;
+    let contextidr = vm.guest_contextidr_el1();
+    if contextidr == 0 {
+        return Err(axerrno::AxError::BadState);
+    }
+    Ok(contextidr)
 }
 
 #[cfg(all(feature = "guest-kprobe", target_arch = "aarch64"))]

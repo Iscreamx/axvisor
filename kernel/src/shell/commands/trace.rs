@@ -34,8 +34,11 @@ fn trace_help(_cmd: &ParsedCommand) {
     println!("  unhprobe <symbol>                 Detach hprobe from VMM function");
     println!("  kprobe vm<id>:<addr|symbol> <prog> Attach kprobe to guest kernel function");
     println!("  unkprobe vm<id>:<addr|symbol>     Detach kprobe from guest kernel function");
+    println!("  uprobe vm<id>:<path>:<sym> <prog> Attach uprobe to guest userspace function");
+    println!("  unuprobe vm<id>:<path>:<sym>      Detach uprobe from guest userspace function");
     println!("  loadsyms vm<id> <path>            Load guest symbol file (nm/System.map)");
     println!("  gsym vm<id> <name|addr>           Query guest symbol by name/address");
+    println!("  uloadelf vm<id> <guest> <path>    Load guest user ELF symbols for uprobe");
     println!();
     println!("Pre-compiled programs:");
     println!("  stats    - Event counter with latency (COUNT/TOTAL/MIN/MAX)");
@@ -128,6 +131,33 @@ fn trace_list(_cmd: &ParsedCommand) {
                 println!(
                     "  vm{:<3} {:<30} {:>8} {:>8} {:<10} {:<6} {:>6}",
                     vm_id, target, hits, prog_id, mode_str, kind, status
+                );
+            }
+        }
+    }
+
+    #[cfg(feature = "guest-uprobe")]
+    {
+        println!();
+        println!("Guest Uprobes:");
+        let probes = axebpf::probe::uprobe::manager::list_all();
+        if probes.is_empty() {
+            println!("  (none)");
+        } else {
+            println!("  {:<6} {:<20} {:<18} {:>8} {:>8} {:<6} {:<8} {:>8}",
+                     "VM", "PATH", "SYMBOL", "OFFSET", "PROG_ID", "RET", "STATE", "HITS");
+            for probe in probes {
+                let kind = if probe.is_ret { "yes" } else { "no" };
+                println!(
+                    "  vm{:<3} {:<20} {:<18} {:#08x} {:>8} {:<6} {:<8} {:>8}",
+                    probe.vm_id,
+                    probe.guest_path,
+                    probe.symbol,
+                    probe.offset,
+                    probe.prog_id,
+                    kind,
+                    probe.state.label(),
+                    probe.hits
                 );
             }
         }
@@ -1228,6 +1258,96 @@ fn trace_unkprobe(_cmd: &ParsedCommand) {
     println!("Error: guest-kprobe feature not enabled");
 }
 
+#[cfg(feature = "guest-uprobe")]
+fn trace_uprobe(cmd: &ParsedCommand) {
+    use axebpf::probe::uprobe::manager;
+    use axebpf::{ProgramRegistry, runtime};
+
+    manager::init();
+
+    let args = &cmd.positional_args;
+    if args.len() < 2 {
+        println!("Usage: trace uprobe vm<id>:<path>:<symbol|offset> <prog_name_or_id> [--ret]");
+        println!("Example: trace uprobe vm0:/usr/bin/demo:main printk");
+        return;
+    }
+
+    let (vm_id, guest_path, symbol_or_offset) = match parse_vm_object_target(&args[0]) {
+        Some(v) => v,
+        None => {
+            println!("Error: invalid target format. Use vm<id>:<path>:<symbol|offset>");
+            return;
+        }
+    };
+
+    let prog_arg = &args[1];
+    let prog_id: u32 = match prog_arg.parse() {
+        Ok(id) => id,
+        Err(_) => match ProgramRegistry::get(prog_arg) {
+            Some(precompiled) => match runtime::load_program(precompiled.bytecode, None) {
+                Ok(id) => {
+                    println!("Loaded program '{}' with id {}", prog_arg, id);
+                    id
+                }
+                Err(e) => {
+                    println!("Failed to load program '{}': {}", prog_arg, e);
+                    return;
+                }
+            },
+            None => {
+                println!("Unknown program: {}", prog_arg);
+                return;
+            }
+        },
+    };
+
+    let is_ret = cmd.flags.contains_key(&"ret".to_string());
+    match manager::attach_symbol(vm_id, guest_path, symbol_or_offset, prog_id, is_ret) {
+        Ok(()) => {
+            let kind = if is_ret { "uretprobe" } else { "uprobe" };
+            println!(
+                "{} registered pending enable: vm{}:{}:{} -> prog {}",
+                kind, vm_id, guest_path, symbol_or_offset, prog_id
+            );
+        }
+        Err(e) => println!("Failed to attach uprobe: {}", e),
+    }
+}
+
+#[cfg(not(feature = "guest-uprobe"))]
+fn trace_uprobe(_cmd: &ParsedCommand) {
+    println!("Error: guest-uprobe feature not enabled");
+}
+
+#[cfg(feature = "guest-uprobe")]
+fn trace_unuprobe(cmd: &ParsedCommand) {
+    use axebpf::probe::uprobe::manager;
+
+    let args = &cmd.positional_args;
+    if args.is_empty() {
+        println!("Usage: trace unuprobe vm<id>:<path>:<symbol|offset>");
+        return;
+    }
+
+    let (vm_id, guest_path, symbol_or_offset) = match parse_vm_object_target(&args[0]) {
+        Some(v) => v,
+        None => {
+            println!("Error: invalid target format. Use vm<id>:<path>:<symbol|offset>");
+            return;
+        }
+    };
+
+    match manager::detach(vm_id, guest_path, symbol_or_offset) {
+        Ok(()) => println!("uprobe detached: vm{}:{}:{}", vm_id, guest_path, symbol_or_offset),
+        Err(e) => println!("Failed to detach uprobe: {}", e),
+    }
+}
+
+#[cfg(not(feature = "guest-uprobe"))]
+fn trace_unuprobe(_cmd: &ParsedCommand) {
+    println!("Error: guest-uprobe feature not enabled");
+}
+
 /// Handle `trace loadsyms vm<id> <path>` command.
 #[cfg(all(feature = "guest-kprobe", feature = "fs"))]
 fn trace_loadsyms(cmd: &ParsedCommand) {
@@ -1281,6 +1401,64 @@ fn trace_loadsyms(_cmd: &ParsedCommand) {
 #[cfg(not(feature = "guest-kprobe"))]
 fn trace_loadsyms(_cmd: &ParsedCommand) {
     println!("Error: guest-kprobe feature not enabled");
+}
+
+/// Handle `trace uloadelf vm<id> <guest_path> <path>` command.
+#[cfg(all(feature = "guest-uprobe", feature = "fs"))]
+fn trace_uloadelf(cmd: &ParsedCommand) {
+    use axstd::fs::File;
+    use axstd::io::Read;
+
+    let args = &cmd.positional_args;
+    if args.len() < 3 {
+        println!("Usage: trace uloadelf vm<ID> <GUEST_PATH> <PATH>");
+        println!("  Load an nm-style symbol file for a guest userspace ELF.");
+        println!("Example: trace uloadelf vm0 /usr/bin/demo /demo.syms");
+        return;
+    }
+
+    let vm_id = match parse_vm_id(&args[0]) {
+        Some(id) => id,
+        None => {
+            println!("Error: invalid VM ID '{}'. Use vm<N> format.", args[0]);
+            return;
+        }
+    };
+
+    let guest_path = &args[1];
+    let path = &args[2];
+    let mut file = match File::open(path) {
+        Ok(f) => f,
+        Err(e) => {
+            println!("Error: failed to open '{}': {}", path, e);
+            return;
+        }
+    };
+
+    let mut content = String::new();
+    if let Err(e) = file.read_to_string(&mut content) {
+        println!("Error: failed to read '{}': {}", path, e);
+        return;
+    }
+
+    match axebpf::probe::uprobe::object::load_text_symbols(vm_id, guest_path, &content) {
+        Ok(count) => println!(
+            "Loaded {} user symbols for vm{}:{} from '{}'",
+            count, vm_id, guest_path, path
+        ),
+        Err(e) => println!("Error: failed to parse object symbols: {}", e),
+    }
+}
+
+#[cfg(all(feature = "guest-uprobe", not(feature = "fs")))]
+fn trace_uloadelf(_cmd: &ParsedCommand) {
+    println!("Error: file system feature not enabled");
+    println!("Rebuild with --features fs to load symbols from files");
+}
+
+#[cfg(not(feature = "guest-uprobe"))]
+fn trace_uloadelf(_cmd: &ParsedCommand) {
+    println!("Error: guest-uprobe feature not enabled");
 }
 
 /// Handle `trace gsym vm<id> <name|addr|search pattern>` command.
@@ -1434,6 +1612,20 @@ fn resolve_guest_gva(vm_id: u32, target: &str) -> Option<(u64, bool)> {
     None
 }
 
+fn parse_vm_object_target(input: &str) -> Option<(u32, &str, &str)> {
+    let input = input.strip_prefix("vm")?;
+    let first_colon = input.find(':')?;
+    let vm_id: u32 = input[..first_colon].parse().ok()?;
+    let rest = &input[first_colon + 1..];
+    let last_colon = rest.rfind(':')?;
+    let guest_path = &rest[..last_colon];
+    let symbol_or_offset = &rest[last_colon + 1..];
+    if guest_path.is_empty() || symbol_or_offset.is_empty() {
+        return None;
+    }
+    Some((vm_id, guest_path, symbol_or_offset))
+}
+
 /// Parse "vm<id>:<target>" format, returns (vm_id, target_str).
 fn parse_vm_target(input: &str) -> Option<(u32, &str)> {
     let input = input.strip_prefix("vm")?;
@@ -1536,6 +1728,9 @@ pub fn register_trace_commands(tree: &mut BTreeMap<String, CommandNode>) {
         .add_subcommand("loadsyms", CommandNode::new("Load guest symbol file")
             .with_handler(trace_loadsyms)
             .with_usage("trace loadsyms vm<ID> <PATH>"))
+        .add_subcommand("uloadelf", CommandNode::new("Load guest userspace symbol file")
+            .with_handler(trace_uloadelf)
+            .with_usage("trace uloadelf vm<ID> <GUEST_PATH> <PATH>"))
         .add_subcommand("gsym", CommandNode::new("Look up guest symbol")
             .with_handler(trace_gsym)
             .with_usage("trace gsym vm<ID> <NAME|ADDR|search PATTERN>"))
@@ -1546,7 +1741,14 @@ pub fn register_trace_commands(tree: &mut BTreeMap<String, CommandNode>) {
             .with_flag(FlagDef::new("ret", "Attach as return probe").with_long("ret")))
         .add_subcommand("unkprobe", CommandNode::new("Detach kprobe from guest kernel function")
             .with_handler(trace_unkprobe)
-            .with_usage("trace unkprobe vm<ID>:<ADDR|SYMBOL>"));
+            .with_usage("trace unkprobe vm<ID>:<ADDR|SYMBOL>"))
+        .add_subcommand("uprobe", CommandNode::new("Attach uprobe to guest userspace function")
+            .with_handler(trace_uprobe)
+            .with_usage("trace uprobe vm<ID>:<PATH>:<SYMBOL|OFFSET> <PROG> [--ret]")
+            .with_flag(FlagDef::new("ret", "Attach as return probe").with_long("ret")))
+        .add_subcommand("unuprobe", CommandNode::new("Detach uprobe from guest userspace function")
+            .with_handler(trace_unuprobe)
+            .with_usage("trace unuprobe vm<ID>:<PATH>:<SYMBOL|OFFSET>"));
 
     tree.insert("trace".to_string(), trace_node);
 }
