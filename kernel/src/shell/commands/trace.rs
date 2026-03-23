@@ -478,6 +478,10 @@ fn matches_filter(ev: &axebpf::event::TraceEvent, filter: &Option<String>) -> bo
             ev.probe_type == axebpf::event::PROBE_KPROBE
                 || ev.probe_type == axebpf::event::PROBE_KRETPROBE
         }
+        "uprobe" => {
+            ev.probe_type == axebpf::event::PROBE_UPROBE
+                || ev.probe_type == axebpf::event::PROBE_URETPROBE
+        }
         "tracepoint" => ev.probe_type == axebpf::event::PROBE_TRACEPOINT,
         f if f.starts_with("vm") => {
             if let Ok(vm_id) = f[2..].parse::<u16>() {
