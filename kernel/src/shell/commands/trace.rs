@@ -144,16 +144,55 @@ fn trace_list(_cmd: &ParsedCommand) {
         if probes.is_empty() {
             println!("  (none)");
         } else {
-            println!("  {:<6} {:<20} {:<18} {:>8} {:>8} {:<6} {:<8} {:>8}",
-                     "VM", "PATH", "SYMBOL", "OFFSET", "PROG_ID", "RET", "STATE", "HITS");
+            println!(
+                "  {:<6} {:<18} {:<18} {:>10} {:>10} {:>6} {:>6} {:<12} {:>8} {:<6} {:<8} {:>8}",
+                "VM",
+                "PATH",
+                "SYMBOL",
+                "OFFSET",
+                "MM",
+                "PID",
+                "TGID",
+                "COMM",
+                "PROG_ID",
+                "RET",
+                "STATE",
+                "HITS"
+            );
             for probe in probes {
                 let kind = if probe.is_ret { "yes" } else { "no" };
+                let mm = if probe.state == axebpf::probe::uprobe::manager::UprobeState::Active {
+                    alloc::format!("{:#x}", probe.mm)
+                } else {
+                    "-".into()
+                };
+                let pid = if probe.state == axebpf::probe::uprobe::manager::UprobeState::Active {
+                    alloc::format!("{}", probe.pid)
+                } else {
+                    "-".into()
+                };
+                let tgid = if probe.state == axebpf::probe::uprobe::manager::UprobeState::Active {
+                    alloc::format!("{}", probe.tgid)
+                } else {
+                    "-".into()
+                };
+                let comm = if probe.state == axebpf::probe::uprobe::manager::UprobeState::Active
+                    && !probe.comm.is_empty()
+                {
+                    probe.comm.clone()
+                } else {
+                    "-".into()
+                };
                 println!(
-                    "  vm{:<3} {:<20} {:<18} {:#08x} {:>8} {:<6} {:<8} {:>8}",
+                    "  vm{:<3} {:<18} {:<18} {:#010x} {:>10} {:>6} {:>6} {:<12} {:>8} {:<6} {:<8} {:>8}",
                     probe.vm_id,
                     probe.guest_path,
                     probe.symbol,
                     probe.offset,
+                    mm,
+                    pid,
+                    tgid,
+                    comm,
                     probe.prog_id,
                     kind,
                     probe.state.label(),
