@@ -93,8 +93,10 @@ fn trace_list(_cmd: &ParsedCommand) {
         if probes.is_empty() {
             println!("  (none)");
         } else {
-            println!("  {:<20} {:<18} {:>8} {:>8} {:>6} {:>6}",
-                     "SYMBOL", "ADDRESS", "HITS", "PROG_ID", "ENABLED", "RET");
+            println!(
+                "  {:<20} {:<18} {:>8} {:>8} {:>6} {:>6}",
+                "SYMBOL", "ADDRESS", "HITS", "PROG_ID", "ENABLED", "RET"
+            );
             for (name, addr, hits, enabled, is_ret, prog_id) in probes {
                 let status = if enabled { "yes" } else { "no" };
                 let kind = if is_ret { "yes" } else { "no" };
@@ -115,8 +117,10 @@ fn trace_list(_cmd: &ParsedCommand) {
         if probes.is_empty() {
             println!("  (none)");
         } else {
-            println!("  {:<6} {:<30} {:>8} {:>8} {:<10} {:<6} {:>6}",
-                     "VM", "TARGET", "HITS", "PROG_ID", "MODE", "RET", "ENABLED");
+            println!(
+                "  {:<6} {:<30} {:>8} {:>8} {:<10} {:<6} {:>6}",
+                "VM", "TARGET", "HITS", "PROG_ID", "MODE", "RET", "ENABLED"
+            );
             for (vm_id, gva, sym, hits, enabled, is_ret, prog_id, mode) in probes {
                 let status = if enabled { "yes" } else { "no" };
                 let kind = if is_ret { "yes" } else { "no" };
@@ -145,11 +149,14 @@ fn trace_list(_cmd: &ParsedCommand) {
             println!("  (none)");
         } else {
             println!(
-                "  {:<6} {:<18} {:<18} {:>10} {:>10} {:>6} {:>6} {:<12} {:>8} {:<6} {:<8} {:>8}",
+                "  {:<6} {:<18} {:<18} {:>10} {:>10} {:>10} {:>10} {:>10} {:>6} {:>6} {:<12} {:>8} {:<6} {:<8} {:>8} {:<18}",
                 "VM",
                 "PATH",
                 "SYMBOL",
                 "OFFSET",
+                "INSTANCE",
+                "RUNTIME_PC",
+                "LOAD_BIAS",
                 "MM",
                 "PID",
                 "TGID",
@@ -157,38 +164,57 @@ fn trace_list(_cmd: &ParsedCommand) {
                 "PROG_ID",
                 "RET",
                 "STATE",
-                "HITS"
+                "HITS",
+                "PENDING"
             );
             for probe in probes {
                 let kind = if probe.is_ret { "yes" } else { "no" };
-                let mm = if probe.state == axebpf::probe::uprobe::manager::UprobeState::Active {
+                let is_active = probe.state == axebpf::probe::uprobe::manager::UprobeState::Active;
+                let instance = if is_active {
+                    alloc::format!("{}", probe.instance_id)
+                } else {
+                    "-".into()
+                };
+                let runtime_pc = if is_active {
+                    alloc::format!("{:#x}", probe.runtime_pc)
+                } else {
+                    "-".into()
+                };
+                let load_bias = if is_active {
+                    alloc::format!("{:#x}", probe.load_bias)
+                } else {
+                    "-".into()
+                };
+                let mm = if is_active {
                     alloc::format!("{:#x}", probe.mm)
                 } else {
                     "-".into()
                 };
-                let pid = if probe.state == axebpf::probe::uprobe::manager::UprobeState::Active {
+                let pid = if is_active {
                     alloc::format!("{}", probe.pid)
                 } else {
                     "-".into()
                 };
-                let tgid = if probe.state == axebpf::probe::uprobe::manager::UprobeState::Active {
+                let tgid = if is_active {
                     alloc::format!("{}", probe.tgid)
                 } else {
                     "-".into()
                 };
-                let comm = if probe.state == axebpf::probe::uprobe::manager::UprobeState::Active
-                    && !probe.comm.is_empty()
-                {
+                let comm = if is_active && !probe.comm.is_empty() {
                     probe.comm.clone()
                 } else {
                     "-".into()
                 };
+                let pending_reason = probe.pending_reason.unwrap_or_else(|| "-".into());
                 println!(
-                    "  vm{:<3} {:<18} {:<18} {:#010x} {:>10} {:>6} {:>6} {:<12} {:>8} {:<6} {:<8} {:>8}",
+                    "  vm{:<3} {:<18} {:<18} {:#010x} {:>10} {:>10} {:>10} {:>10} {:>6} {:>6} {:<12} {:>8} {:<6} {:<8} {:>8} {:<18}",
                     probe.vm_id,
                     probe.guest_path,
                     probe.symbol,
                     probe.offset,
+                    instance,
+                    runtime_pc,
+                    load_bias,
                     mm,
                     pid,
                     tgid,
@@ -196,7 +222,8 @@ fn trace_list(_cmd: &ParsedCommand) {
                     probe.prog_id,
                     kind,
                     probe.state.label(),
-                    probe.hits
+                    probe.hits,
+                    pending_reason
                 );
             }
         }
@@ -212,7 +239,7 @@ fn trace_list(_cmd: &ParsedCommand) {
 #[cfg(feature = "ebpf")]
 fn trace_enable(cmd: &ParsedCommand) {
     use axebpf::tracepoint::TracepointManager;
-    use axebpf::{attach, runtime, ProgramRegistry};
+    use axebpf::{ProgramRegistry, attach, runtime};
 
     let args = &cmd.positional_args;
 
@@ -233,9 +260,7 @@ fn trace_enable(cmd: &ParsedCommand) {
 
     let prog_name = cmd.options.get("prog").map(|s| s.as_str());
 
-    let tp_names: alloc::vec::Vec<_> = args.iter()
-        .filter(|a| !a.starts_with("--"))
-        .collect();
+    let tp_names: alloc::vec::Vec<_> = args.iter().filter(|a| !a.starts_with("--")).collect();
 
     for tp_name in tp_names {
         match mgr.enable(tp_name) {
@@ -248,20 +273,16 @@ fn trace_enable(cmd: &ParsedCommand) {
 
         if let Some(prog) = prog_name {
             match ProgramRegistry::get(prog) {
-                Some(precompiled) => {
-                    match runtime::load_program(precompiled.bytecode, None) {
-                        Ok(prog_id) => {
-                            match attach::attach(tp_name, prog_id, prog) {
-                                Ok(()) => println!("Attached: {} program", prog),
-                                Err(e) => {
-                                    println!("Failed to attach {}: {}", prog, e);
-                                    let _ = runtime::unload_program(prog_id);
-                                }
-                            }
+                Some(precompiled) => match runtime::load_program(precompiled.bytecode, None) {
+                    Ok(prog_id) => match attach::attach(tp_name, prog_id, prog) {
+                        Ok(()) => println!("Attached: {} program", prog),
+                        Err(e) => {
+                            println!("Failed to attach {}: {}", prog, e);
+                            let _ = runtime::unload_program(prog_id);
                         }
-                        Err(e) => println!("Failed to load {}: {}", prog, e),
-                    }
-                }
+                    },
+                    Err(e) => println!("Failed to load {}: {}", prog, e),
+                },
                 None => {
                     println!("Unknown program: {}", prog);
                     println!("Available: stats, printk");
@@ -430,10 +451,7 @@ fn print_trace_header() {
         "{:<15} {:<5} {:<12} {:<30} {}",
         "TIMESTAMP", "CPU", "TYPE", "EVENT", "DETAILS"
     );
-    println!(
-        "{:-<15} {:-<5} {:-<12} {:-<30} {:-<30}",
-        "", "", "", "", ""
-    );
+    println!("{:-<15} {:-<5} {:-<12} {:-<30} {:-<30}", "", "", "", "", "");
 }
 
 #[cfg(feature = "ebpf")]
@@ -442,8 +460,8 @@ fn print_trace_event(ev: &axebpf::event::TraceEvent) {
 
     let secs = ev.timestamp_ns / 1_000_000_000;
     let usecs = (ev.timestamp_ns % 1_000_000_000) / 1_000;
-    let event_name =
-        event::get_event_name(ev.name_offset).unwrap_or_else(|| alloc::format!("id:{}", ev.event_id));
+    let event_name = event::get_event_name(ev.name_offset)
+        .unwrap_or_else(|| alloc::format!("id:{}", ev.event_id));
 
     let mut details = String::new();
     if ev.nr_args > 0 {
@@ -613,7 +631,12 @@ fn trace_stat(cmd: &ParsedCommand) {
                     0
                 };
                 let bar: String = core::iter::repeat('|').take(bar_len).collect();
-                println!("    {} : {:>8}  {}", axebpf::tracepoints::BUCKET_LABELS[idx], count, bar);
+                println!(
+                    "    {} : {:>8}  {}",
+                    axebpf::tracepoints::BUCKET_LABELS[idx],
+                    count,
+                    bar
+                );
             }
             println!(
                 "    P50={} P90={} P99={}",
@@ -652,7 +675,10 @@ fn trace_stat(cmd: &ParsedCommand) {
             }
         }
         if !hprobes.is_empty() {
-            println!("  {:<30} {:>8} {:>10} {:>8}", "HPROBE", "PROG_ID", "HITS", "STATUS");
+            println!(
+                "  {:<30} {:>8} {:>10} {:>8}",
+                "HPROBE", "PROG_ID", "HITS", "STATUS"
+            );
             for (name, _addr, hits, enabled, _is_ret, prog_id) in &hprobes {
                 let status = if *enabled { "active" } else { "disabled" };
                 println!("  {:<30} {:>8} {:>10} {:>8}", name, prog_id, hits, status);
@@ -828,7 +854,12 @@ fn trace_load_file(args: &[String]) {
         }
     };
 
-    println!("Loaded program {} ({} bytes) from {}", prog_id, bytecode.len(), path);
+    println!(
+        "Loaded program {} ({} bytes) from {}",
+        prog_id,
+        bytecode.len(),
+        path
+    );
 
     match attach::attach(tracepoint, prog_id, "file") {
         Ok(()) => println!("Attached to {}", tracepoint),
@@ -859,7 +890,10 @@ fn trace_unload(cmd: &ParsedCommand) {
     let tracepoint = &args[0];
 
     match attach::detach(tracepoint) {
-        Ok(info) => println!("Detached program {} ({}) from {}", info.prog_name, info.prog_id, tracepoint),
+        Ok(info) => println!(
+            "Detached program {} ({}) from {}",
+            info.prog_name, info.prog_id, tracepoint
+        ),
         Err(e) => println!("Failed to detach: {}", e),
     }
 }
@@ -871,7 +905,7 @@ fn trace_unload(_cmd: &ParsedCommand) {
 
 #[cfg(feature = "ebpf")]
 fn trace_progs(_cmd: &ParsedCommand) {
-    use axebpf::{attach, runtime, ProgramRegistry};
+    use axebpf::{ProgramRegistry, attach, runtime};
 
     println!("Pre-compiled programs:");
     let precompiled = ProgramRegistry::list();
@@ -912,7 +946,11 @@ fn trace_progs(_cmd: &ParsedCommand) {
     }
 
     println!();
-    println!("Total: {} loaded, {} attachments", programs.len(), attachments.len());
+    println!(
+        "Total: {} loaded, {} attachments",
+        programs.len(),
+        attachments.len()
+    );
 }
 
 #[cfg(not(feature = "ebpf"))]
@@ -928,7 +966,11 @@ fn trace_verbose(cmd: &ParsedCommand) {
 
     if args.is_empty() {
         // Show current status
-        let status = if attach::is_verbose() { "enabled" } else { "disabled" };
+        let status = if attach::is_verbose() {
+            "enabled"
+        } else {
+            "disabled"
+        };
         println!("Verbose mode: {}", status);
         return;
     }
@@ -964,7 +1006,7 @@ fn trace_verbose(_cmd: &ParsedCommand) {
 fn trace_hprobe(cmd: &ParsedCommand) {
     use axebpf::hprobe_manager;
     use axebpf::symbols;
-    use axebpf::{runtime, ProgramRegistry};
+    use axebpf::{ProgramRegistry, runtime};
 
     // Initialize hprobe subsystem if needed
     hprobe_manager::init();
@@ -989,18 +1031,16 @@ fn trace_hprobe(cmd: &ParsedCommand) {
         Err(_) => {
             // Treat as program name - load from precompiled
             match ProgramRegistry::get(prog_arg) {
-                Some(precompiled) => {
-                    match runtime::load_program(precompiled.bytecode, None) {
-                        Ok(id) => {
-                            println!("Loaded program '{}' with id {}", prog_arg, id);
-                            id
-                        }
-                        Err(e) => {
-                            println!("Failed to load program '{}': {}", prog_arg, e);
-                            return;
-                        }
+                Some(precompiled) => match runtime::load_program(precompiled.bytecode, None) {
+                    Ok(id) => {
+                        println!("Loaded program '{}' with id {}", prog_arg, id);
+                        id
                     }
-                }
+                    Err(e) => {
+                        println!("Failed to load program '{}': {}", prog_arg, e);
+                        return;
+                    }
+                },
                 None => {
                     println!("Unknown program: {}", prog_arg);
                     println!("Available programs:");
@@ -1034,7 +1074,10 @@ fn trace_hprobe(cmd: &ParsedCommand) {
 
     match hprobe_manager::attach(symbol, prog_id, false) {
         Ok(addr) => {
-            println!("Hprobe attached: {} @ {:#x} -> prog {}", symbol, addr, prog_id);
+            println!(
+                "Hprobe attached: {} @ {:#x} -> prog {}",
+                symbol, addr, prog_id
+            );
         }
         Err(e) => {
             println!("Failed to attach hprobe: {}", e);
@@ -1053,7 +1096,7 @@ fn trace_hprobe(_cmd: &ParsedCommand) {
 fn trace_hretprobe(cmd: &ParsedCommand) {
     use axebpf::hprobe_manager;
     use axebpf::symbols;
-    use axebpf::{runtime, ProgramRegistry};
+    use axebpf::{ProgramRegistry, runtime};
 
     hprobe_manager::init();
 
@@ -1077,18 +1120,16 @@ fn trace_hretprobe(cmd: &ParsedCommand) {
         Err(_) => {
             // Treat as program name - load from precompiled
             match ProgramRegistry::get(prog_arg) {
-                Some(precompiled) => {
-                    match runtime::load_program(precompiled.bytecode, None) {
-                        Ok(id) => {
-                            println!("Loaded program '{}' with id {}", prog_arg, id);
-                            id
-                        }
-                        Err(e) => {
-                            println!("Failed to load program '{}': {}", prog_arg, e);
-                            return;
-                        }
+                Some(precompiled) => match runtime::load_program(precompiled.bytecode, None) {
+                    Ok(id) => {
+                        println!("Loaded program '{}' with id {}", prog_arg, id);
+                        id
                     }
-                }
+                    Err(e) => {
+                        println!("Failed to load program '{}': {}", prog_arg, e);
+                        return;
+                    }
+                },
                 None => {
                     println!("Unknown program: {}", prog_arg);
                     println!("Available programs:");
@@ -1122,7 +1163,10 @@ fn trace_hretprobe(cmd: &ParsedCommand) {
 
     match hprobe_manager::attach(symbol, prog_id, true) {
         Ok(addr) => {
-            println!("Hretprobe attached: {} @ {:#x} -> prog {}", symbol, addr, prog_id);
+            println!(
+                "Hretprobe attached: {} @ {:#x} -> prog {}",
+                symbol, addr, prog_id
+            );
         }
         Err(e) => {
             println!("Failed to attach hretprobe: {}", e);
@@ -1171,7 +1215,7 @@ fn trace_unhprobe(_cmd: &ParsedCommand) {
 #[cfg(feature = "guest-kprobe")]
 fn trace_kprobe(cmd: &ParsedCommand) {
     use axebpf::probe::kprobe::manager::{self as guest_kprobe, KprobeMode};
-    use axebpf::{runtime, ProgramRegistry};
+    use axebpf::{ProgramRegistry, runtime};
 
     guest_kprobe::init();
 
@@ -1203,37 +1247,38 @@ fn trace_kprobe(cmd: &ParsedCommand) {
     let prog_arg = &args[1];
     let prog_id: u32 = match prog_arg.parse() {
         Ok(id) => id,
-        Err(_) => {
-            match ProgramRegistry::get(prog_arg) {
-                Some(precompiled) => {
-                    match runtime::load_program(precompiled.bytecode, None) {
-                        Ok(id) => {
-                            println!("Loaded program '{}' with id {}", prog_arg, id);
-                            id
-                        }
-                        Err(e) => {
-                            println!("Failed to load program '{}': {}", prog_arg, e);
-                            return;
-                        }
-                    }
+        Err(_) => match ProgramRegistry::get(prog_arg) {
+            Some(precompiled) => match runtime::load_program(precompiled.bytecode, None) {
+                Ok(id) => {
+                    println!("Loaded program '{}' with id {}", prog_arg, id);
+                    id
                 }
-                None => {
-                    println!("Unknown program: {}", prog_arg);
+                Err(e) => {
+                    println!("Failed to load program '{}': {}", prog_arg, e);
                     return;
                 }
+            },
+            None => {
+                println!("Unknown program: {}", prog_arg);
+                return;
             }
-        }
+        },
     };
 
     let inject = cmd.flags.contains_key(&"inject".to_string());
     let is_ret = cmd.flags.contains_key(&"ret".to_string());
-    let mode = if inject { KprobeMode::BrkInject } else { KprobeMode::Stage2Fault };
+    let mode = if inject {
+        KprobeMode::BrkInject
+    } else {
+        KprobeMode::Stage2Fault
+    };
 
     match guest_kprobe::attach(vm_id, gva, prog_id, is_ret, mode) {
         Ok(()) => {
             if resolved_by_symbol {
                 let _ = guest_kprobe::set_symbol(vm_id, gva, Some(addr_str));
-            } else if let Some((name, _ty, offset)) = axebpf::guest_symbols::lookup_name(vm_id, gva) {
+            } else if let Some((name, _ty, offset)) = axebpf::guest_symbols::lookup_name(vm_id, gva)
+            {
                 if offset == 0 {
                     let _ = guest_kprobe::set_symbol(vm_id, gva, Some(&name));
                 }
@@ -1381,7 +1426,10 @@ fn trace_unuprobe(cmd: &ParsedCommand) {
     };
 
     match manager::detach(vm_id, guest_path, symbol_or_offset) {
-        Ok(()) => println!("uprobe detached: vm{}:{}:{}", vm_id, guest_path, symbol_or_offset),
+        Ok(()) => println!(
+            "uprobe detached: vm{}:{}:{}",
+            vm_id, guest_path, symbol_or_offset
+        ),
         Err(e) => println!("Failed to detach uprobe: {}", e),
     }
 }
@@ -1542,7 +1590,12 @@ fn trace_gsym(cmd: &ParsedCommand) {
         if results.is_empty() {
             println!("No symbols matching '{}' in vm{}", pattern, vm_id);
         } else {
-            println!("{} result(s) for '{}' in vm{}:", results.len(), pattern, vm_id);
+            println!(
+                "{} result(s) for '{}' in vm{}:",
+                results.len(),
+                pattern,
+                vm_id
+            );
             for (addr, name, ty) in &results {
                 println!("  {:#018x} {} {}", addr, ty, name);
             }
@@ -1642,7 +1695,10 @@ fn resolve_guest_gva(vm_id: u32, target: &str) -> Option<(u64, bool)> {
 
     println!("Error: symbol '{}' not found in vm{}", target, vm_id);
     if !axebpf::guest_symbols::is_loaded(vm_id) {
-        println!("Hint: load symbols first with 'trace loadsyms vm{} <path>'", vm_id);
+        println!(
+            "Hint: load symbols first with 'trace loadsyms vm{} <path>'",
+            vm_id
+        );
     } else {
         let results = axebpf::guest_symbols::search(vm_id, target, 5);
         if !results.is_empty() {
@@ -1694,7 +1750,9 @@ pub fn register_trace_commands(tree: &mut BTreeMap<String, CommandNode>) {
     let enable_cmd = CommandNode::new("Enable a tracepoint")
         .with_handler(trace_enable)
         .with_usage("trace enable <TRACEPOINT>... [--prog stats|printk]")
-        .with_option(OptionDef::new("prog", "eBPF program to attach (stats, printk)").with_long("prog"));
+        .with_option(
+            OptionDef::new("prog", "eBPF program to attach (stats, printk)").with_long("prog"),
+        );
 
     let disable_cmd = CommandNode::new("Disable a tracepoint")
         .with_handler(trace_disable)
@@ -1704,8 +1762,11 @@ pub fn register_trace_commands(tree: &mut BTreeMap<String, CommandNode>) {
         .with_handler(trace_stream)
         .with_usage("trace stream [--filter TYPE] [-n COUNT]")
         .with_option(
-            OptionDef::new("filter", "Filter by type: hprobe, kprobe, tracepoint, vm<N>")
-                .with_long("filter"),
+            OptionDef::new(
+                "filter",
+                "Filter by type: hprobe, kprobe, tracepoint, vm<N>",
+            )
+            .with_long("filter"),
         )
         .with_option(OptionDef::new("n", "Stop after N events").with_short('n'));
 
@@ -1759,39 +1820,72 @@ pub fn register_trace_commands(tree: &mut BTreeMap<String, CommandNode>) {
         .add_subcommand("load", load_cmd)
         .add_subcommand("unload", unload_cmd)
         .add_subcommand("progs", progs_cmd)
-        .add_subcommand("hprobe", CommandNode::new("Attach hprobe to VMM function")
-            .with_handler(trace_hprobe)
-            .with_usage("trace hprobe <SYMBOL> <PROG_NAME_OR_ID>"))
-        .add_subcommand("hretprobe", CommandNode::new("Attach hretprobe to VMM function")
-            .with_handler(trace_hretprobe)
-            .with_usage("trace hretprobe <SYMBOL> <PROG_ID>"))
-        .add_subcommand("unhprobe", CommandNode::new("Detach hprobe from VMM function")
-            .with_handler(trace_unhprobe)
-            .with_usage("trace unhprobe <SYMBOL>"))
-        .add_subcommand("loadsyms", CommandNode::new("Load guest symbol file")
-            .with_handler(trace_loadsyms)
-            .with_usage("trace loadsyms vm<ID> <PATH>"))
-        .add_subcommand("uloadelf", CommandNode::new("Load guest userspace symbol file")
-            .with_handler(trace_uloadelf)
-            .with_usage("trace uloadelf vm<ID> <GUEST_PATH> <PATH>"))
-        .add_subcommand("gsym", CommandNode::new("Look up guest symbol")
-            .with_handler(trace_gsym)
-            .with_usage("trace gsym vm<ID> <NAME|ADDR|search PATTERN>"))
-        .add_subcommand("kprobe", CommandNode::new("Attach kprobe to guest kernel function")
-            .with_handler(trace_kprobe)
-            .with_usage("trace kprobe vm<ID>:<ADDR|SYMBOL> <PROG> [--inject] [--ret]")
-            .with_flag(FlagDef::new("inject", "Use BRK injection mode instead of Stage-2 fault").with_long("inject"))
-            .with_flag(FlagDef::new("ret", "Attach as return probe").with_long("ret")))
-        .add_subcommand("unkprobe", CommandNode::new("Detach kprobe from guest kernel function")
-            .with_handler(trace_unkprobe)
-            .with_usage("trace unkprobe vm<ID>:<ADDR|SYMBOL>"))
-        .add_subcommand("uprobe", CommandNode::new("Attach uprobe to guest userspace function")
-            .with_handler(trace_uprobe)
-            .with_usage("trace uprobe vm<ID>:<PATH>:<SYMBOL|OFFSET> <PROG> [--ret]")
-            .with_flag(FlagDef::new("ret", "Attach as return probe").with_long("ret")))
-        .add_subcommand("unuprobe", CommandNode::new("Detach uprobe from guest userspace function")
-            .with_handler(trace_unuprobe)
-            .with_usage("trace unuprobe vm<ID>:<PATH>:<SYMBOL|OFFSET>"));
+        .add_subcommand(
+            "hprobe",
+            CommandNode::new("Attach hprobe to VMM function")
+                .with_handler(trace_hprobe)
+                .with_usage("trace hprobe <SYMBOL> <PROG_NAME_OR_ID>"),
+        )
+        .add_subcommand(
+            "hretprobe",
+            CommandNode::new("Attach hretprobe to VMM function")
+                .with_handler(trace_hretprobe)
+                .with_usage("trace hretprobe <SYMBOL> <PROG_ID>"),
+        )
+        .add_subcommand(
+            "unhprobe",
+            CommandNode::new("Detach hprobe from VMM function")
+                .with_handler(trace_unhprobe)
+                .with_usage("trace unhprobe <SYMBOL>"),
+        )
+        .add_subcommand(
+            "loadsyms",
+            CommandNode::new("Load guest symbol file")
+                .with_handler(trace_loadsyms)
+                .with_usage("trace loadsyms vm<ID> <PATH>"),
+        )
+        .add_subcommand(
+            "uloadelf",
+            CommandNode::new("Load guest userspace symbol file")
+                .with_handler(trace_uloadelf)
+                .with_usage("trace uloadelf vm<ID> <GUEST_PATH> <PATH>"),
+        )
+        .add_subcommand(
+            "gsym",
+            CommandNode::new("Look up guest symbol")
+                .with_handler(trace_gsym)
+                .with_usage("trace gsym vm<ID> <NAME|ADDR|search PATTERN>"),
+        )
+        .add_subcommand(
+            "kprobe",
+            CommandNode::new("Attach kprobe to guest kernel function")
+                .with_handler(trace_kprobe)
+                .with_usage("trace kprobe vm<ID>:<ADDR|SYMBOL> <PROG> [--inject] [--ret]")
+                .with_flag(
+                    FlagDef::new("inject", "Use BRK injection mode instead of Stage-2 fault")
+                        .with_long("inject"),
+                )
+                .with_flag(FlagDef::new("ret", "Attach as return probe").with_long("ret")),
+        )
+        .add_subcommand(
+            "unkprobe",
+            CommandNode::new("Detach kprobe from guest kernel function")
+                .with_handler(trace_unkprobe)
+                .with_usage("trace unkprobe vm<ID>:<ADDR|SYMBOL>"),
+        )
+        .add_subcommand(
+            "uprobe",
+            CommandNode::new("Attach uprobe to guest userspace function")
+                .with_handler(trace_uprobe)
+                .with_usage("trace uprobe vm<ID>:<PATH>:<SYMBOL|OFFSET> <PROG> [--ret]")
+                .with_flag(FlagDef::new("ret", "Attach as return probe").with_long("ret")),
+        )
+        .add_subcommand(
+            "unuprobe",
+            CommandNode::new("Detach uprobe from guest userspace function")
+                .with_handler(trace_unuprobe)
+                .with_usage("trace unuprobe vm<ID>:<PATH>:<SYMBOL|OFFSET>"),
+        );
 
     tree.insert("trace".to_string(), trace_node);
 }
