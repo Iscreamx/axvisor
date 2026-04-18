@@ -180,7 +180,9 @@ async fn main() -> Result<()> {
                         .status()
                         .context("Failed to run rust-objcopy for binary regeneration")?;
                     if !status.success() {
-                        eprintln!("Warning: Failed to regenerate flat binary after symbol injection");
+                        eprintln!(
+                            "Warning: Failed to regenerate flat binary after symbol injection"
+                        );
                     }
                 }
             }

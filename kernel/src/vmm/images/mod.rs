@@ -30,7 +30,10 @@ pub fn load_images(config: &AxVMCrateConfig) -> anyhow::Result<VMImagesConfig> {
 
     #[cfg(feature = "ebpf")]
     if result.is_ok() {
-        let image_size = result.as_ref().map(|r| r.kernel.data.len() as u64).unwrap_or(0);
+        let image_size = result
+            .as_ref()
+            .map(|r| r.kernel.data.len() as u64)
+            .unwrap_or(0);
         trace_image_load(config.base.id as u32, image_size, 0);
     }
 

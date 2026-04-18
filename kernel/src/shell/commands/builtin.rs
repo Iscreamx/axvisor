@@ -146,7 +146,10 @@ pub fn do_ksym(cmd: &ParsedCommand) {
             match u64::from_str_radix(addr_str, 16) {
                 Ok(addr) => match symbols::lookup_symbol(addr) {
                     Some((name, size, offset, ty)) => {
-                        println!("0x{:x} = {}+0x{:x} (size: {}, type: {})", addr, name, offset, size, ty);
+                        println!(
+                            "0x{:x} = {}+0x{:x} (size: {}, type: {})",
+                            addr, name, offset, size, ty
+                        );
                     }
                     None => println!("No symbol found at address 0x{:x}", addr),
                 },

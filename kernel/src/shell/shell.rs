@@ -192,7 +192,8 @@ impl Shell {
                         } else if is_unique && matches_count > 0 {
                             // Single match - insert the full match
                             let text_to_insert = &result.matches[0];
-                            let word_start = completion::find_word_start(current_content, self.cursor);
+                            let word_start =
+                                completion::find_word_start(current_content, self.cursor);
                             let current_word = &current_content[word_start..self.cursor];
 
                             // Calculate what we need to add (match minus what's already typed)
@@ -204,7 +205,8 @@ impl Shell {
 
                             if !to_add.is_empty() {
                                 let to_add_bytes = to_add.as_bytes();
-                                let insert_len = to_add_bytes.len().min(MAX_LINE_LEN - self.line_len - 1);
+                                let insert_len =
+                                    to_add_bytes.len().min(MAX_LINE_LEN - self.line_len - 1);
 
                                 if insert_len > 0 {
                                     // Move existing characters to make space
@@ -221,12 +223,19 @@ impl Shell {
 
                                     // Redraw
                                     let new_content =
-                                        std::str::from_utf8(&self.buf[..self.line_len]).unwrap_or("");
+                                        std::str::from_utf8(&self.buf[..self.line_len])
+                                            .unwrap_or("");
                                     #[cfg(feature = "fs")]
-                                    let prompt = format!("axvisor:{}$ ", &std::env::current_dir().unwrap());
+                                    let prompt =
+                                        format!("axvisor:{}$ ", &std::env::current_dir().unwrap());
                                     #[cfg(not(feature = "fs"))]
                                     let prompt = "axvisor:$ ".to_string();
-                                    clear_line_and_redraw(&mut self.stdout, &prompt, new_content, self.cursor);
+                                    clear_line_and_redraw(
+                                        &mut self.stdout,
+                                        &prompt,
+                                        new_content,
+                                        self.cursor,
+                                    );
                                 }
                             }
                         }

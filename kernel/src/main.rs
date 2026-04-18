@@ -13,8 +13,8 @@ extern crate driver;
 // extern crate axruntime;
 
 mod logo;
-mod task;
 mod shell;
+mod task;
 mod vmm;
 
 pub use shell::*;

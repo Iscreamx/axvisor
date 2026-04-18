@@ -3,7 +3,7 @@
 //! Provides timer tick and event tracing for the hypervisor.
 
 #[cfg(feature = "ebpf")]
-use axebpf::tracepoints::{trace_timer_tick, trace_timer_event};
+use axebpf::tracepoints::{trace_timer_event, trace_timer_tick};
 
 /// Check and process pending timer events.
 ///

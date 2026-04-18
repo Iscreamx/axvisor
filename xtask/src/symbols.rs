@@ -1,6 +1,12 @@
-use std::{collections::HashMap, fmt::Debug, io::{Write, Seek, SeekFrom}, fs::{self, File, OpenOptions}, path::Path};
-use anyhow::{Result, Context};
+use anyhow::{Context, Result};
 use ksym::TOKEN_MARKER;
+use std::{
+    collections::HashMap,
+    fmt::Debug,
+    fs::{self, File, OpenOptions},
+    io::{Seek, SeekFrom, Write},
+    path::Path,
+};
 
 /// Candidate prefix lengths for heuristic tokenization
 const PREFIX_CANDIDATE_LENS: &[usize] = &[
@@ -261,7 +267,10 @@ impl KallsymsBlob {
 }
 
 pub fn generate_symbols(kernel_path: &Path, output_path: &Path) -> Result<()> {
-    println!("Generating symbols from {:?} to {:?}", kernel_path, output_path);
+    println!(
+        "Generating symbols from {:?} to {:?}",
+        kernel_path, output_path
+    );
 
     // In a real implementation, we would parse the ELF file to extract symbols.
     // For now, we'll try to run `nm` command.
@@ -272,7 +281,10 @@ pub fn generate_symbols(kernel_path: &Path, output_path: &Path) -> Result<()> {
         .context("Failed to run nm")?;
 
     if !output.status.success() {
-        return Err(anyhow::anyhow!("nm failed: {}", String::from_utf8_lossy(&output.stderr)));
+        return Err(anyhow::anyhow!(
+            "nm failed: {}",
+            String::from_utf8_lossy(&output.stderr)
+        ));
     }
 
     let stdout = String::from_utf8_lossy(&output.stdout);
@@ -291,7 +303,8 @@ pub fn generate_symbols(kernel_path: &Path, output_path: &Path) -> Result<()> {
     let binary_blob = blob.to_blob();
 
     let mut file = File::create(output_path).context("Failed to create output file")?;
-    file.write_all(&binary_blob).context("Failed to write blob")?;
+    file.write_all(&binary_blob)
+        .context("Failed to write blob")?;
 
     println!("Symbol table generated, size: {} bytes", binary_blob.len());
     Ok(())
@@ -339,13 +352,15 @@ pub fn inject_kallsyms(elf_path: &Path, kallsyms_path: &Path) -> Result<()> {
     use object::Object;
     use object::ObjectSection;
 
-    let section = elf.section_by_name(".kallsyms")
-        .ok_or_else(|| anyhow::anyhow!(
+    let section = elf.section_by_name(".kallsyms").ok_or_else(|| {
+        anyhow::anyhow!(
             ".kallsyms section not found in ELF. \
              Ensure the 'ebpf' feature is enabled (via guest-kprobe or similar)."
-        ))?;
+        )
+    })?;
 
-    let section_offset = section.file_range()
+    let section_offset = section
+        .file_range()
         .ok_or_else(|| anyhow::anyhow!(".kallsyms section has no file data"))?
         .0 as u64;
     let section_size = section.size() as usize;

@@ -52,13 +52,14 @@ pub fn execute_command(input: &str) -> Result<(), ParseError> {
     let parsed = CommandParser::parse(input, &*COMMAND_TREE)?;
 
     // Find the corresponding command node
-    let mut current_node = (*COMMAND_TREE).get(&parsed.command_path[0]).ok_or_else(|| {
-        ParseError::UnknownCommand(parsed.command_path[0].clone())
-    })?;
+    let mut current_node = (*COMMAND_TREE)
+        .get(&parsed.command_path[0])
+        .ok_or_else(|| ParseError::UnknownCommand(parsed.command_path[0].clone()))?;
     for cmd in &parsed.command_path[1..] {
-        current_node = current_node.subcommands.get(cmd).ok_or_else(|| {
-            ParseError::UnknownCommand(cmd.clone())
-        })?;
+        current_node = current_node
+            .subcommands
+            .get(cmd)
+            .ok_or_else(|| ParseError::UnknownCommand(cmd.clone()))?;
     }
 
     // Execute the command

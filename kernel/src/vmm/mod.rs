@@ -24,8 +24,7 @@ fn register_guest_kprobe_hooks() {
     #[cfg(feature = "guest-uprobe")]
     use axebpf::probe::uprobe::addr_translate::{
         register_gpa_to_hpa_hook as register_uprobe_gpa_to_hpa_hook,
-        register_guest_pt_read_hook as register_uprobe_guest_pt_read_hook,
-        register_vm_ttbr0_hook,
+        register_guest_pt_read_hook as register_uprobe_guest_pt_read_hook, register_vm_ttbr0_hook,
     };
     #[cfg(feature = "guest-uprobe")]
     use axebpf::probe::uprobe::linux_runtime_observer::register_vm_contextidr_hook;
@@ -52,8 +51,7 @@ pub(crate) fn notify_guest_vmexit(vm_id: u32) {
     if enabled > 0 {
         info!(
             "guest_kprobe: auto-enabled {} deferred probe(s) for vm{} after VM-exit",
-            enabled,
-            vm_id
+            enabled, vm_id
         );
     }
     #[cfg(feature = "guest-uprobe")]
@@ -61,16 +59,14 @@ pub(crate) fn notify_guest_vmexit(vm_id: u32) {
         Ok(registered) if registered > 0 => {
             info!(
                 "guest_uprobe_observer: registered {} hidden runtime observer probe(s) for vm{}",
-                registered,
-                vm_id
+                registered, vm_id
             );
         }
         Ok(_) => {}
         Err(err) => {
             warn!(
                 "guest_uprobe_observer: failed to register hidden runtime observers for vm{}: {}",
-                vm_id,
-                err
+                vm_id, err
             );
         }
     }
