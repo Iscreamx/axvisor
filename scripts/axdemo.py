@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tarfile
+import tempfile
 import time
 import urllib.request
 from datetime import datetime
@@ -17,7 +18,9 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_LOGS_DIR = ROOT / "docs" / "ebpf-tracing" / "logs"
 DEFAULT_WORK_ROOT = ROOT / "tmp" / "axebpf-mainline-oneclick"
+DEFAULT_UPSTREAM_CACHE_ROOT = Path(tempfile.gettempdir()) / "axdemo-upstream-cache"
 DEFAULT_AXVISOR_GUEST_REF = "v0.0.26"
+DEFAULT_AXEBPF_PROGRAMS_URL = "https://github.com/Iscreamx/axebpf-programs.git"
 AXVISOR_GUEST_RELEASE_IMAGE = "qemu_aarch64_linux.tar.gz"
 REQUIRED_COMMANDS = (
     "git",
@@ -46,7 +49,6 @@ LINUX_GUEST_SYMS_PATH = "/vmimages/linux-qemu-aarch64.syms"
 PRINTK_GUEST_PATH = "/vmimages/printk.o"
 AXVISOR_ELF = ROOT / "target" / "aarch64-unknown-none-softfloat" / "release" / "axvisor"
 AXVISOR_BIN = ROOT / "target" / "aarch64-unknown-none-softfloat" / "release" / "axvisor.bin"
-PRINTK_HOST = ROOT / "target" / "bpf" / "printk.o"
 CHECKER = ROOT / "scripts" / "verify" / "check_axdemo_log.py"
 EMBEDDED_BUILD_CONFIG = """cargo_args = []
 features = [
@@ -414,6 +416,17 @@ def plan_axvisor_guest_paths(work_root: Path, ref: str = DEFAULT_AXVISOR_GUEST_R
         "release_dir": release_dir,
         "archive_path": archive_path,
         "extract_dir": extract_dir,
+    }
+
+
+def plan_axebpf_programs_paths(work_root: Path) -> dict[str, Path]:
+    cache_root = DEFAULT_UPSTREAM_CACHE_ROOT
+    clone_dir = cache_root / "axebpf-programs"
+    output_dir = clone_dir / "output"
+    return {
+        "cache_root": cache_root,
+        "clone_dir": clone_dir,
+        "output_dir": output_dir,
     }
 
 
@@ -875,6 +888,31 @@ def download_axvisor_guest_release(
     return paths
 
 
+def fetch_axebpf_programs(
+    paths: dict[str, Path],
+    *,
+    reuse_clone: bool,
+) -> dict[str, Path]:
+    clone_dir = paths["clone_dir"]
+    if clone_dir.exists() and not reuse_clone:
+        shutil.rmtree(clone_dir)
+    if not clone_dir.exists():
+        clone_dir.parent.mkdir(parents=True, exist_ok=True)
+        run(
+            [
+                "git",
+                "clone",
+                "--recursive",
+                "--depth",
+                "1",
+                DEFAULT_AXEBPF_PROGRAMS_URL,
+                str(clone_dir),
+            ],
+            cwd=ROOT,
+        )
+    return paths
+
+
 def _write_stdout_to_file(command: list[str], *, cwd: Path, output_path: Path) -> None:
     result = run(command, cwd=cwd, capture_output=True)
     output_path.write_text(result.stdout, encoding="utf-8")
@@ -1042,6 +1080,14 @@ def build_demo_binary(
     }
 
 
+def build_axebpf_programs(repo_dir: Path, output_dir: Path) -> dict[str, Path]:
+    run(["bash", "build.sh"], cwd=repo_dir)
+    printk_host = output_dir / "printk.o"
+    if not printk_host.exists():
+        raise FileNotFoundError(printk_host)
+    return {"printk_host": printk_host}
+
+
 def _ensure_guest_dir(rootfs_image: Path, guest_dir: str) -> None:
     if guest_dir in ("/", ""):
         return
@@ -1078,15 +1124,16 @@ def inject_rootfs_files(
     rootfs_image: Path,
     linux_guest_bin: Path,
     linux_guest_syms: Path,
+    printk_host: Path,
     assets: dict[str, Path],
     demo_outputs: dict[str, Path],
 ) -> None:
-    if not PRINTK_HOST.exists():
-        raise FileNotFoundError(PRINTK_HOST)
+    if not printk_host.exists():
+        raise FileNotFoundError(printk_host)
 
     _debugfs_write(rootfs_image, linux_guest_bin, LINUX_GUEST_BIN_PATH, "0100644")
     _debugfs_write(rootfs_image, linux_guest_syms, LINUX_GUEST_SYMS_PATH, "0100644")
-    _debugfs_write(rootfs_image, PRINTK_HOST, PRINTK_GUEST_PATH, "0100644")
+    _debugfs_write(rootfs_image, printk_host, PRINTK_GUEST_PATH, "0100644")
 
     for command in build_rootfs_injection_plan(
         rootfs_image,
@@ -1271,6 +1318,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         _run_stage(summary_path, "check_environment", require_environment)
         axvisor_guest_paths = plan_axvisor_guest_paths(DEFAULT_WORK_ROOT, args.axvisor_guest_ref)
+        axebpf_program_paths = plan_axebpf_programs_paths(DEFAULT_WORK_ROOT)
         _run_stage(
             summary_path,
             "download_axvisor_guest_release",
@@ -1279,10 +1327,24 @@ def main(argv: list[str] | None = None) -> int:
             args.axvisor_guest_ref,
             reuse_clone=args.reuse_axvisor_guest_clone,
         )
+        _run_stage(
+            summary_path,
+            "fetch_axebpf_programs",
+            fetch_axebpf_programs,
+            axebpf_program_paths,
+            reuse_clone=args.reuse_axvisor_guest_clone,
+        )
         _run_stage(summary_path, "prepare_linux_base_image", prepare_linux_base_image, run_paths, axvisor_guest_paths)
         assets = _run_stage(summary_path, "write_embedded_assets", write_embedded_assets, run_paths["staging_dir"])
         if not args.skip_build_axvisor:
             _run_stage(summary_path, "build_axvisor", build_axvisor, assets["build_config"])
+        bpf_outputs = _run_stage(
+            summary_path,
+            "build_axebpf_programs",
+            build_axebpf_programs,
+            axebpf_program_paths["clone_dir"],
+            axebpf_program_paths["output_dir"],
+        )
         demo_outputs = _run_stage(summary_path, "build_demo_binary", build_demo_binary, assets, run_paths["build_dir"])
         _run_stage(
             summary_path,
@@ -1291,6 +1353,7 @@ def main(argv: list[str] | None = None) -> int:
             run_paths["run_rootfs_image"],
             run_paths["linux_guest_bin"],
             run_paths["linux_guest_syms"],
+            bpf_outputs["printk_host"],
             assets,
             demo_outputs,
         )

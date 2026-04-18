@@ -95,6 +95,16 @@ class AxvisorGuestPlanTests(unittest.TestCase):
         )
 
 
+class AxebpfProgramsPlanTests(unittest.TestCase):
+    def test_plan_axebpf_programs_paths_returns_expected_locations(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            work_root = Path(tmp_dir)
+            paths = MODULE.plan_axebpf_programs_paths(work_root)
+            self.assertEqual(paths["cache_root"], MODULE.DEFAULT_UPSTREAM_CACHE_ROOT)
+            self.assertEqual(paths["clone_dir"], MODULE.DEFAULT_UPSTREAM_CACHE_ROOT / "axebpf-programs")
+            self.assertEqual(paths["output_dir"], MODULE.DEFAULT_UPSTREAM_CACHE_ROOT / "axebpf-programs" / "output")
+
+
 class EmbeddedAssetTests(unittest.TestCase):
     def test_write_embedded_assets_creates_expected_files(self) -> None:
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -183,6 +193,34 @@ class BuildConfigTests(unittest.TestCase):
                 MODULE.run = original_run
 
             self.assertEqual(workspace_config.read_text(encoding="utf-8"), 'features = ["original"]\n')
+
+
+class BpfProgramBuildTests(unittest.TestCase):
+    def test_build_axebpf_programs_uses_repo_build_script_and_returns_printk(self) -> None:
+        calls: list[tuple[list[str], Path | None]] = []
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_root = Path(tmp_dir)
+            repo_dir = temp_root / "axebpf-programs"
+            output_dir = repo_dir / "output"
+            repo_dir.mkdir()
+            output_dir.mkdir()
+            (output_dir / "printk.o").write_text("fake", encoding="utf-8")
+
+            def fake_run(cmd, *, cwd=None, capture_output=False):  # noqa: ANN001
+                self.assertFalse(capture_output)
+                calls.append((cmd, cwd))
+                return None
+
+            original_run = MODULE.run
+            try:
+                MODULE.run = fake_run
+                result = MODULE.build_axebpf_programs(repo_dir, output_dir)
+            finally:
+                MODULE.run = original_run
+
+            self.assertEqual(calls, [(["bash", "build.sh"], repo_dir)])
+            self.assertEqual(result["printk_host"], output_dir / "printk.o")
 
 
 class GuestBootFailureTests(unittest.TestCase):
@@ -279,8 +317,10 @@ class MainOrderTests(unittest.TestCase):
                 "DEFAULT_WORK_ROOT": MODULE.DEFAULT_WORK_ROOT,
                 "require_environment": MODULE.require_environment,
                 "download_axvisor_guest_release": MODULE.download_axvisor_guest_release,
+                "fetch_axebpf_programs": MODULE.fetch_axebpf_programs,
                 "prepare_linux_base_image": MODULE.prepare_linux_base_image,
                 "build_axvisor": MODULE.build_axvisor,
+                "build_axebpf_programs": MODULE.build_axebpf_programs,
                 "write_embedded_assets": MODULE.write_embedded_assets,
                 "build_demo_binary": MODULE.build_demo_binary,
                 "inject_rootfs_files": MODULE.inject_rootfs_files,
@@ -299,6 +339,10 @@ class MainOrderTests(unittest.TestCase):
                     order.append("download_axvisor_guest_release")
                     return paths
 
+                def fake_fetch_axebpf_programs(paths, *, reuse_clone):  # noqa: ANN001
+                    order.append("fetch_axebpf_programs")
+                    return paths
+
                 def fake_prepare_linux_base_image(run_paths, release_paths):  # noqa: ANN001
                     order.append("prepare_linux_base_image")
                     run_paths["linux_guest_bin"] = root / "linux.bin"
@@ -311,6 +355,10 @@ class MainOrderTests(unittest.TestCase):
                     self.assertEqual(build_config_path.name, ".build.toml")
                     self.assertEqual(build_config_path.parent.name, "staging")
                     self.assertEqual(build_config_path.parent.parent.parent, root / "work-root")
+
+                def fake_build_axebpf_programs(repo_dir, output_dir):  # noqa: ANN001
+                    order.append("build_axebpf_programs")
+                    return {"printk_host": output_dir / "printk.o"}
 
                 def fake_write_embedded_assets(staging_dir):  # noqa: ANN001
                     order.append("write_embedded_assets")
@@ -330,7 +378,7 @@ class MainOrderTests(unittest.TestCase):
                         "demo_syms": build_dir / "demo.syms",
                     }
 
-                def fake_inject_rootfs_files(rootfs_image, linux_guest_bin, linux_guest_syms, assets, demo_outputs):  # noqa: ANN001
+                def fake_inject_rootfs_files(rootfs_image, linux_guest_bin, linux_guest_syms, printk_host, assets, demo_outputs):  # noqa: ANN001
                     order.append("inject_rootfs_files")
 
                 def fake_verify_injected_rootfs(rootfs_image):  # noqa: ANN001
@@ -353,8 +401,10 @@ class MainOrderTests(unittest.TestCase):
 
                 MODULE.require_environment = fake_require_environment
                 MODULE.download_axvisor_guest_release = fake_download_axvisor_guest_release
+                MODULE.fetch_axebpf_programs = fake_fetch_axebpf_programs
                 MODULE.prepare_linux_base_image = fake_prepare_linux_base_image
                 MODULE.build_axvisor = fake_build_axvisor
+                MODULE.build_axebpf_programs = fake_build_axebpf_programs
                 MODULE.write_embedded_assets = fake_write_embedded_assets
                 MODULE.build_demo_binary = fake_build_demo_binary
                 MODULE.inject_rootfs_files = fake_inject_rootfs_files
@@ -371,9 +421,11 @@ class MainOrderTests(unittest.TestCase):
                     [
                         "check_environment",
                         "download_axvisor_guest_release",
+                        "fetch_axebpf_programs",
                         "prepare_linux_base_image",
                         "write_embedded_assets",
                         "build_axvisor",
+                        "build_axebpf_programs",
                         "build_demo_binary",
                         "inject_rootfs_files",
                         "verify_injected_rootfs",
