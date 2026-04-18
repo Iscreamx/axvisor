@@ -48,6 +48,20 @@ AXVISOR_ELF = ROOT / "target" / "aarch64-unknown-none-softfloat" / "release" / "
 AXVISOR_BIN = ROOT / "target" / "aarch64-unknown-none-softfloat" / "release" / "axvisor.bin"
 PRINTK_HOST = ROOT / "target" / "bpf" / "printk.o"
 CHECKER = ROOT / "scripts" / "verify" / "check_axdemo_log.py"
+EMBEDDED_BUILD_CONFIG = """cargo_args = []
+features = [
+    "axstd/bus-mmio",
+    "dyn-plat",
+    "hprobe",
+    "guest-kprobe",
+    "guest-uprobe",
+    "fs",
+]
+log = "Info"
+target = "aarch64-unknown-none-softfloat"
+to_bin = true
+vm_configs = []
+"""
 EMBEDDED_DEMO_C = """typedef unsigned long u64;
 
 #define AT_FDCWD (-100)
@@ -413,6 +427,7 @@ def build_axvisor_guest_release_url(ref: str) -> str:
 def write_embedded_assets(staging_dir: Path) -> dict[str, Path]:
     staging_dir.mkdir(parents=True, exist_ok=True)
     paths = {
+        "build_config": staging_dir / ".build.toml",
         "demo_c": staging_dir / "axebpf_integration_demo.c",
         "demo_fallback_asm": staging_dir / "axebpf_integration_demo_fallback.S",
         "guest_init": staging_dir / "axebpf-integration-guest-init.sh",
@@ -420,6 +435,7 @@ def write_embedded_assets(staging_dir: Path) -> dict[str, Path]:
         "inittab": staging_dir / "axebpf-integration.inittab",
         "vmconfig": staging_dir / "linux-qemu-smp1-axebpf-integration.toml",
     }
+    paths["build_config"].write_text(EMBEDDED_BUILD_CONFIG, encoding="utf-8")
     paths["demo_c"].write_text(EMBEDDED_DEMO_C, encoding="utf-8")
     paths["demo_fallback_asm"].write_text(EMBEDDED_DEMO_FALLBACK_ASM, encoding="utf-8")
     paths["guest_init"].write_text(EMBEDDED_GUEST_INIT_SH, encoding="utf-8")
@@ -987,8 +1003,25 @@ def prepare_linux_base_image(
     }
 
 
-def build_axvisor() -> None:
-    run(["cargo", "xtask", "build"], cwd=ROOT)
+def _workspace_build_config_path() -> Path:
+    return ROOT / ".build.toml"
+
+
+def build_axvisor(build_config_path: Path) -> None:
+    workspace_config = _workspace_build_config_path()
+    original_text: str | None = None
+    if workspace_config.exists():
+        original_text = workspace_config.read_text(encoding="utf-8")
+
+    workspace_config.write_text(build_config_path.read_text(encoding="utf-8"), encoding="utf-8")
+    try:
+        run(["cargo", "xtask", "build"], cwd=ROOT)
+    finally:
+        if original_text is None:
+            if workspace_config.exists():
+                workspace_config.unlink()
+        else:
+            workspace_config.write_text(original_text, encoding="utf-8")
 
 
 def build_demo_binary(
@@ -1247,9 +1280,9 @@ def main(argv: list[str] | None = None) -> int:
             reuse_clone=args.reuse_axvisor_guest_clone,
         )
         _run_stage(summary_path, "prepare_linux_base_image", prepare_linux_base_image, run_paths, axvisor_guest_paths)
-        if not args.skip_build_axvisor:
-            _run_stage(summary_path, "build_axvisor", build_axvisor)
         assets = _run_stage(summary_path, "write_embedded_assets", write_embedded_assets, run_paths["staging_dir"])
+        if not args.skip_build_axvisor:
+            _run_stage(summary_path, "build_axvisor", build_axvisor, assets["build_config"])
         demo_outputs = _run_stage(summary_path, "build_demo_binary", build_demo_binary, assets, run_paths["build_dir"])
         _run_stage(
             summary_path,

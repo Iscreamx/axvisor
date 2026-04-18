@@ -100,6 +100,7 @@ class EmbeddedAssetTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             staging_dir = Path(tmp_dir)
             paths = MODULE.write_embedded_assets(staging_dir)
+            self.assertEqual(paths["build_config"], staging_dir / ".build.toml")
             self.assertEqual(paths["demo_c"], staging_dir / "axebpf_integration_demo.c")
             self.assertEqual(paths["demo_fallback_asm"], staging_dir / "axebpf_integration_demo_fallback.S")
             self.assertEqual(paths["guest_init"], staging_dir / "axebpf-integration-guest-init.sh")
@@ -113,6 +114,11 @@ class EmbeddedAssetTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp_dir:
             staging_dir = Path(tmp_dir)
             paths = MODULE.write_embedded_assets(staging_dir)
+            build_config = paths["build_config"].read_text(encoding="utf-8")
+            self.assertIn("hprobe", build_config)
+            self.assertIn("guest-kprobe", build_config)
+            self.assertIn("guest-uprobe", build_config)
+            self.assertIn("fs", build_config)
             self.assertIn("demo:start", paths["demo_c"].read_text(encoding="utf-8"))
             self.assertIn("demo:done", paths["demo_c"].read_text(encoding="utf-8"))
             self.assertIn("/etc/init.d/axebpf-integration-launch.sh", paths["guest_init"].read_text(encoding="utf-8"))
@@ -120,6 +126,63 @@ class EmbeddedAssetTests(unittest.TestCase):
             self.assertIn("init=/init", paths["vmconfig"].read_text(encoding="utf-8"))
             self.assertNotIn("init=/bin/init", paths["vmconfig"].read_text(encoding="utf-8"))
             self.assertNotIn("init=/sbin/init", paths["vmconfig"].read_text(encoding="utf-8"))
+
+
+class BuildConfigTests(unittest.TestCase):
+    def test_build_axvisor_temporarily_writes_workspace_build_config(self) -> None:
+        calls: list[tuple[list[str], Path | None]] = []
+
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_root = Path(tmp_dir)
+            source_config = temp_root / "staging.build.toml"
+            source_config.write_text('features = ["guest-kprobe"]\n', encoding="utf-8")
+
+            def fake_run(cmd, *, cwd=None, capture_output=False):  # noqa: ANN001
+                self.assertFalse(capture_output)
+                self.assertEqual(cmd, ["cargo", "xtask", "build"])
+                self.assertEqual(cwd, temp_root)
+                workspace_config = temp_root / ".build.toml"
+                self.assertTrue(workspace_config.exists())
+                self.assertEqual(workspace_config.read_text(encoding="utf-8"), source_config.read_text(encoding="utf-8"))
+                calls.append((cmd, cwd))
+                return None
+
+            original_root = MODULE.ROOT
+            original_run = MODULE.run
+            try:
+                MODULE.ROOT = temp_root
+                MODULE.run = fake_run
+                MODULE.build_axvisor(source_config)
+            finally:
+                MODULE.ROOT = original_root
+                MODULE.run = original_run
+
+            self.assertEqual(calls, [(["cargo", "xtask", "build"], temp_root)])
+            self.assertFalse((temp_root / ".build.toml").exists())
+
+    def test_build_axvisor_restores_existing_workspace_build_config(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            temp_root = Path(tmp_dir)
+            workspace_config = temp_root / ".build.toml"
+            source_config = temp_root / "staging.build.toml"
+            workspace_config.write_text('features = ["original"]\n', encoding="utf-8")
+            source_config.write_text('features = ["guest-uprobe"]\n', encoding="utf-8")
+
+            def fake_run(cmd, *, cwd=None, capture_output=False):  # noqa: ANN001
+                self.assertEqual(workspace_config.read_text(encoding="utf-8"), source_config.read_text(encoding="utf-8"))
+                return None
+
+            original_root = MODULE.ROOT
+            original_run = MODULE.run
+            try:
+                MODULE.ROOT = temp_root
+                MODULE.run = fake_run
+                MODULE.build_axvisor(source_config)
+            finally:
+                MODULE.ROOT = original_root
+                MODULE.run = original_run
+
+            self.assertEqual(workspace_config.read_text(encoding="utf-8"), 'features = ["original"]\n')
 
 
 class GuestBootFailureTests(unittest.TestCase):
@@ -243,12 +306,16 @@ class MainOrderTests(unittest.TestCase):
                     run_paths["run_rootfs_image"] = root / "rootfs.img"
                     return {}
 
-                def fake_build_axvisor() -> None:
+                def fake_build_axvisor(build_config_path) -> None:  # noqa: ANN001
                     order.append("build_axvisor")
+                    self.assertEqual(build_config_path.name, ".build.toml")
+                    self.assertEqual(build_config_path.parent.name, "staging")
+                    self.assertEqual(build_config_path.parent.parent.parent, root / "work-root")
 
                 def fake_write_embedded_assets(staging_dir):  # noqa: ANN001
                     order.append("write_embedded_assets")
                     return {
+                        "build_config": staging_dir / ".build.toml",
                         "demo_c": staging_dir / "demo.c",
                         "demo_fallback_asm": staging_dir / "demo.S",
                         "launcher": staging_dir / "launch.sh",
@@ -305,8 +372,8 @@ class MainOrderTests(unittest.TestCase):
                         "check_environment",
                         "download_axvisor_guest_release",
                         "prepare_linux_base_image",
-                        "build_axvisor",
                         "write_embedded_assets",
+                        "build_axvisor",
                         "build_demo_binary",
                         "inject_rootfs_files",
                         "verify_injected_rootfs",
